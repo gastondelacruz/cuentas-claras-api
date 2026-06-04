@@ -10,6 +10,14 @@ Guía operativa para agentes de IA y personas que trabajan en este repo. Leé es
 4. Agregá/actualizá tests (`*.spec.ts` junto al código, `*.e2e-spec.ts` en `test/`).
 5. Verificá con `npm test` (y `npm run test:e2e` si tocaste el flujo HTTP/DB).
 
+## Reglas de interacción
+
+| Regla | Detalle |
+|-------|---------|
+| Aprobación de código | Antes de agregar o modificar código, mostrá el plan o el diff y **esperá aprobación explícita**. No avances sin el OK. |
+| Aprobación de commits | **Nunca** hagas `git commit` (ni `push`, ni PR) sin pedir aprobación antes. Mostrá qué se va a commitear y esperá confirmación. |
+| Una cosa a la vez | Si hay varios cambios, mostralos en partes revisables, no todo junto. |
+
 ## Stack
 
 | Capa | Tecnología |
@@ -74,6 +82,16 @@ Notas clave:
 - Unit tests viven **junto al código** que prueban (`health.controller.spec.ts` al lado de `health.controller.ts`).
 - e2e tests viven en `test/` con sufijo `.e2e-spec.ts` y usan `supertest` contra la app Nest.
 - Usá `Test.createTestingModule` para armar el contexto de DI; mockeá `PrismaService` en unit tests, usá DB real en e2e.
+
+## Documentación técnica
+
+Para saber cómo usar una librería (NestJS, Prisma, TypeScript, Vitest, etc.):
+
+1. **El código del repo primero** — la verdad del proyecto está en el proyecto.
+2. **Context7 (MCP)** — doc oficial viva y versionada, on-demand.
+3. **Conocimiento base** — solo para patrones estables; verificá lo que cambia rápido.
+
+**No** crear skills con doc de librerías: envejecen y mienten. Las skills son solo para **convenciones de este proyecto** (ver tabla de [Skills](#skills)).
 
 ## Skills
 
