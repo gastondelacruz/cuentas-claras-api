@@ -5,3 +5,7 @@ dist
 !.env.example
 coverage
 .DS_Store
+
+# Agent tooling (setup personal, no viaja con el repo)
+.claude/
+skills-lock.json
