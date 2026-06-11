@@ -85,23 +85,47 @@ Notas clave:
 
 ## Documentación técnica
 
-Para saber cómo usar una librería (NestJS, Prisma, TypeScript, Vitest, etc.):
+Para saber cómo usar una librería del stack (NestJS, Prisma, TypeScript, Vitest, Node), en este orden:
 
 1. **El código del repo primero** — la verdad del proyecto está en el proyecto.
-2. **Context7 (MCP)** — doc oficial viva y versionada, on-demand.
-3. **Conocimiento base** — solo para patrones estables; verificá lo que cambia rápido.
+2. **Skills técnicas locales (`.agents/skills/`)** — referencia pineada a la versión del stack (Prisma 7.6.0, Vitest, NestJS, TS). **Primera parada** para patrones y APIs. Ver [Skills técnicas del proyecto](#skills-tecnicas-del-proyecto-agentsskills).
+3. **Context7 (MCP)** — **fallback** para lo que la skill local no cubra: doc oficial viva y versionada, on-demand.
+4. **Conocimiento base** — solo para patrones estables; verificá lo que cambia rápido.
 
-**No** crear skills con doc de librerías: envejecen y mienten. Las skills son solo para **convenciones de este proyecto** (ver tabla de [Skills](#skills)).
+Las skills técnicas locales están **versionadas con el código** y pineadas a una versión concreta. Si bumpeás una dependencia mayor, actualizá la skill correspondiente o caé a Context7 para lo nuevo — no dejes que mienta.
 
 ## Skills
 
-Las skills son instrucciones especializadas que viven **fuera del repo** (instaladas por usuario en `~/.config/opencode/skills` y rutas equivalentes). **No las copies dentro del proyecto.** El índice canónico es:
+Hay **dos tipos** de skills. Antes de cada tarea, identificá el contexto y leé la `SKILL.md` correspondiente **antes** de escribir código, tests, docs o commits. Pueden aplicar **varias a la vez** (ej. tocar un service de Prisma + escribir su test = `prisma-client-api` + `vitest`). Si ninguna aplica, seguí sin inyección de skills.
 
-```
-.atl/skill-registry.md
-```
+### Skills técnicas del proyecto (`.agents/skills/`)
 
-Antes de cualquier tarea, identificá el contexto y leé la `SKILL.md` correspondiente desde la ruta que figura en el registry:
+Viven **dentro del repo**, versionadas con el código y pineadas a tu stack. Son la **primera fuente** de doc de librerías (antes que Context7). Si tocás el área, leé su `SKILL.md`.
+
+**Uso diario** — el grueso del trabajo cae acá:
+
+| Tocás… | Skill | Path |
+|--------|-------|------|
+| Código NestJS (módulos, DI, guards, controllers, providers) | `nestjs-best-practices` | `.agents/skills/nestjs-best-practices/SKILL.md` |
+| Decisiones de arquitectura Node / async / seguridad | `nodejs-best-practices` | `.agents/skills/nodejs-best-practices/SKILL.md` |
+| Queries con Prisma Client (`findMany`, `create`, `$transaction`, filtros) | `prisma-client-api` | `.agents/skills/prisma-client-api/SKILL.md` |
+| Comandos Prisma CLI (`generate`, `migrate`, `db`, `studio`) | `prisma-cli` | `.agents/skills/prisma-cli/SKILL.md` |
+| Tipos avanzados de TS (generics, conditional, mapped, utility) | `typescript-advanced-types` | `.agents/skills/typescript-advanced-types/SKILL.md` |
+| Tests con Vitest (mocking, coverage, fixtures, filtering) | `vitest` | `.agents/skills/vitest/SKILL.md` |
+
+**Referencia secundaria** — solo cuando la tarea lo pide explícitamente (la DB ya está configurada y el framework es NestJS):
+
+| Tocás… | Skill | Path |
+|--------|-------|------|
+| Patrones de backend Node / diseño de API / middleware / errores (Express/Fastify) | `nodejs-backend-patterns` | `.agents/skills/nodejs-backend-patterns/SKILL.md` |
+| Configurar Prisma con un provider / connection issues | `prisma-database-setup` | `.agents/skills/prisma-database-setup/SKILL.md` |
+| Prisma Postgres (provisioning, Console, create-db) | `prisma-postgres` | `.agents/skills/prisma-postgres/SKILL.md` |
+
+> `nodejs-backend-patterns` referencia Express/Fastify: tomá los patrones de arquitectura/API, pero el framework real acá es **NestJS** — ante conflicto, gana `nestjs-best-practices`.
+
+### Skills de flujo de trabajo (`.atl/skill-registry.md`)
+
+Viven **fuera del repo** (instaladas en `~/.config/opencode/skills` y rutas equivalentes). **No las copies dentro del proyecto.** El índice canónico es `.atl/skill-registry.md`:
 
 | Contexto de la tarea | Skill a leer |
 |----------------------|--------------|
@@ -121,7 +145,7 @@ Protocolo:
 2. Abrí la `SKILL.md` exacta de la ruta indicada **antes** de empezar a trabajar.
 3. Si ninguna skill aplica, seguí sin inyección de skills.
 
-Si agregás, quitás o cambiás skills, regenerá el índice:
+Si agregás, quitás o cambiás skills de flujo, regenerá el índice:
 
 ```bash
 gentle-ai skill-registry refresh --force
@@ -129,7 +153,7 @@ gentle-ai skill-registry refresh --force
 
 ## Checklist antes de entregar
 
-- [ ] Leíste la(s) skill(s) relevante(s) del registry.
+- [ ] Leíste la(s) skill(s) relevante(s): técnicas (`.agents/skills/`) y/o de flujo (`.atl/skill-registry.md`).
 - [ ] El código respeta screaming architecture (dominio correcto, lógica fuera de `shared/`).
 - [ ] Tabs, comillas dobles, nombres `kebab-case.<rol>.ts`.
 - [ ] Hay tests nuevos/actualizados y `npm test` pasa.
