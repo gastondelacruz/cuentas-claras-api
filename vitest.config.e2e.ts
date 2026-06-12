@@ -9,11 +9,13 @@ export default defineConfig({
 			module: { type: "es6" },
 		}),
 	],
-	test: {
+		test: {
 		globals: true,
 		environment: "node",
 		root: "./",
 		include: ["test/**/*.e2e-spec.ts"],
+		hookTimeout: 60_000,
+		testTimeout: 60_000,
 		// e2e tests boot the Nest app and hit a real DB; keep them serial.
 		fileParallelism: false,
 	},
