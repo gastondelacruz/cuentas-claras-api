@@ -8,6 +8,11 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    env:
+      # prisma.config.ts resolves DATABASE_URL eagerly via env(), even for
+      # `prisma generate`, which never connects. Unit tests mock PrismaService,
+      # so a placeholder is enough here; the real URL belongs to the e2e job.
+      DATABASE_URL: "postgresql://user:pass@localhost:5432/db?schema=public"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
