@@ -4,16 +4,17 @@
   "description": "REST API for Cuentas Claras shared expenses app.",
   "private": true,
   "license": "UNLICENSED",
-  "scripts": {
-    "start": "nest start",
-    "start:dev": "nest start --watch",
-    "build": "nest build",
-    "prisma:migrate": "prisma migrate dev",
-    "prisma:generate": "prisma generate",
-    "prisma:studio": "prisma studio",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:cov": "vitest run --coverage",
+	"scripts": {
+		"start": "nest start",
+		"start:dev": "nest start --watch",
+		"build": "nest build",
+		"prisma:migrate": "prisma migrate dev",
+		"prisma:generate": "prisma generate",
+		"prisma:seed": "prisma db seed",
+		"prisma:studio": "prisma studio",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"test:cov": "vitest run --coverage",
     "test:e2e": "vitest run --config ./vitest.config.e2e.ts"
   },
   "dependencies": {
