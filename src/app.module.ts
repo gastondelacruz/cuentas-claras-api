@@ -2,7 +2,7 @@ import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import appConfig from "./config/app.config";
 import { envValidationSchema } from "./config/env.validation";
-import { HealthController } from "./health.controller";
+import { HealthController } from "./health/health.controller";
 import { PrismaModule } from "./prisma/prisma.module";
 
 @Module({

@@ -12,7 +12,8 @@
     "incremental": true,
     "strict": true,
     "strictPropertyInitialization": false,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "types": ["node", "vitest/globals"]
   },
   "exclude": ["node_modules", "dist"]
 }

@@ -1,137 +1,166 @@
 # AGENTS.md — cuentas-claras-api
 
-Guía operativa para agentes de IA y personas que trabajan en este repo. Leé esto **antes** de escribir código, tests o documentación.
+Operational guide for AI agents and humans working in this repo. Read this **before** writing code, tests, or documentation.
 
 ## Quick path
 
-1. Identificá el dominio que vas a tocar (`auth`, `users`, `groups`, `expenses`, `settlements`) o la infraestructura transversal (`shared`, `config`, `prisma`).
-2. **Antes de tocar código**, revisá la sección [Skills](#skills) y leé la `SKILL.md` que corresponda a la tarea.
-3. Escribí o modificá el código respetando las [convenciones](#convenciones).
-4. Agregá/actualizá tests (`*.spec.ts` junto al código, `*.e2e-spec.ts` en `test/`).
-5. Verificá con `npm test` (y `npm run test:e2e` si tocaste el flujo HTTP/DB).
+1. Identify the domain you will touch (`auth`, `users`, `groups`, `expenses`, `settlements`) or the transversal infrastructure area (`shared`, `config`, `prisma`).
+2. **Before touching code**, review [Skills](#skills) and read the matching `SKILL.md`.
+3. For architecture-sensitive changes, read `.agents/skills/project-architecture/SKILL.md`.
+4. For new features, bug fixes, or test-impacting work, read `.agents/skills/project-tdd-testing/SKILL.md`.
+5. Write or modify code following the [Conventions](#conventions).
+6. Verify with `npm test` and, when HTTP/DB behavior changes, `npm run test:e2e`.
 
-## Reglas de interacción
+## Interaction rules
 
-| Regla | Detalle |
-|-------|---------|
-| Aprobación de código | Antes de agregar o modificar código, mostrá el plan o el diff y **esperá aprobación explícita**. No avances sin el OK. |
-| Aprobación de commits | **Nunca** hagas `git commit` (ni `push`, ni PR) sin pedir aprobación antes. Mostrá qué se va a commitear y esperá confirmación. |
-| Una cosa a la vez | Si hay varios cambios, mostralos en partes revisables, no todo junto. |
+| Rule | Detail |
+|------|--------|
+| Code approval | Before adding or modifying code, show the plan or diff and **wait for explicit approval**. Do not continue without an OK. |
+| Commit approval | **Never** run `git commit` (or `push`, or open a PR) without approval first. Show what will be committed and wait for confirmation. |
+| One thing at a time | If there are multiple changes, show them in reviewable parts instead of all at once. |
 
 ## Stack
 
-| Capa | Tecnología |
+| Layer | Technology |
 |------|------------|
 | Runtime | Node.js 26, TypeScript (strict) |
 | Framework | NestJS 11 |
 | ORM | Prisma 7 (driver adapter `@prisma/adapter-pg`) |
-| Base de datos | PostgreSQL 17 (vía `docker compose`) |
-| Validación | `class-validator` / `class-transformer`, `joi` para env |
-| Docs API | Swagger en `/docs` |
-| Testing | Vitest 4 + `unplugin-swc` + coverage v8, `supertest` para e2e |
+| Database | PostgreSQL 17 (via `docker compose`) |
+| Validation | `class-validator` / `class-transformer`, `joi` for env |
+| API docs | Swagger at `/docs` |
+| Testing | Vitest 4 + `unplugin-swc` + coverage v8, `supertest` for e2e |
 
-## Arquitectura (screaming architecture)
+## Architecture
 
-La estructura de `src/` **grita el dominio del negocio**, no el framework. Las carpetas de primer nivel son dominios de negocio; la infraestructura transversal es explícita y está separada.
+Read `.agents/skills/project-architecture/SKILL.md` before changing `src/` structure, domain boundaries, ports, adapters, or Nest module wiring.
+
+Quick source-tree summary:
 
 ```
 src/
-  auth/          # dominio: autenticación
-  users/         # dominio: usuarios
-  groups/        # dominio: grupos
-  expenses/      # dominio: gastos
-  settlements/   # dominio: liquidaciones
-  shared/        # transversal: decorators, filters, guards, interceptors
-  config/        # transversal: configuración y validación de env
-  prisma/        # transversal: PrismaService + PrismaModule
-  app.module.ts  # raíz de composición
-  main.ts        # bootstrap
+  groups/                     # business domain (same shape for auth, users, expenses, settlements)
+    domain/                   # pure core: no Nest/Prisma/framework imports
+    application/              # use cases
+    infrastructure/           # HTTP and persistence adapters
+    groups.module.ts          # composition root
+  health/                     # operational endpoint, not a business hexagon
+  shared/                     # cross-cutting decorators, filters, guards, interceptors
+  config/                     # configuration and env validation
+  prisma/                     # PrismaService + PrismaModule
+  app.module.ts               # root composition
+  main.ts                     # bootstrap
 ```
 
-Reglas:
+## Conventions
 
-- Un dominio nuevo es una carpeta nueva bajo `src/`, con su propio `*.module.ts`, `*.controller.ts`, `*.service.ts` y DTOs.
-- La lógica de negocio vive en el dominio, **no** en `shared/`. `shared/` es solo para piezas reutilizables sin dominio (filtros HTTP, interceptors, decorators, guards).
-- El acceso a datos pasa por `PrismaService` (inyectado), nunca instanciando `PrismaClient` a mano.
-- `config/` centraliza la lectura de env; los módulos consumen config tipada, no `process.env` directo.
-
-## Convenciones
-
-| Tema | Regla |
-|------|-------|
-| Indentación | **Tabs** (no espacios). |
-| Comillas | **Dobles** en imports y strings TS. |
-| Punto y coma | Sí, siempre. |
-| Imports de tipos | `import { type Foo }` cuando es solo tipo. |
-| Nombres de archivo | `kebab-case.<rol>.ts` (ej. `current-user.decorator.ts`, `http-exception.filter.ts`). |
-| DTOs | Clases con decoradores de `class-validator`. |
-| Respuestas HTTP | Forma uniforme vía `ResponseInterceptor` (`{ data: ... }`). |
+| Topic | Rule |
+|------|------|
+| Project artifact language | Write source code, docs, comments, tests, UI copy, and other repo artifacts in **English by default**. Chat language is separate and may follow the user. |
+| Indentation | **Tabs** (no spaces). |
+| Quotes | **Double quotes** in imports and TS strings. |
+| Semicolons | Yes, always. |
+| Type imports | `import { type Foo }` when an import is type-only. |
+| File names | `kebab-case.<role>.ts` (for example `current-user.decorator.ts`, `http-exception.filter.ts`). |
+| DTOs | Classes with `class-validator` decorators. |
+| HTTP responses | Uniform shape via `ResponseInterceptor` (`{ data: ... }`). |
 
 ## Testing
 
-| Comando | Para qué |
-|---------|----------|
-| `npm test` | Corre unit tests (`src/**/*.spec.ts`) una vez. |
-| `npm run test:watch` | Modo watch durante desarrollo. |
-| `npm run test:cov` | Unit tests + reporte de coverage (v8) en `./coverage`. |
-| `npm run test:e2e` | Tests e2e (`test/**/*.e2e-spec.ts`), serial, contra app + DB real. |
+Read `.agents/skills/project-tdd-testing/SKILL.md` before implementing new behavior, fixing bugs, or changing test coverage.
 
-Notas clave:
+Keep these repo-specific operational notes in mind:
 
-- **Decoradores + Vitest**: la compilación la maneja **SWC** (`unplugin-swc`), no Oxc/esbuild. Esto es obligatorio porque NestJS depende de `emitDecoratorMetadata`. Por eso `oxc: false` en `vitest.config.ts`. No lo quites: sin SWC, `Test.createTestingModule` no resuelve las dependencias.
-- Unit tests viven **junto al código** que prueban (`health.controller.spec.ts` al lado de `health.controller.ts`).
-- e2e tests viven en `test/` con sufijo `.e2e-spec.ts` y usan `supertest` contra la app Nest.
-- Usá `Test.createTestingModule` para armar el contexto de DI; mockeá `PrismaService` en unit tests, usá DB real en e2e.
+| Command | Purpose |
+|---------|---------|
+| `npm test` | Run unit tests (`src/**/*.spec.ts`) once. |
+| `npm run test:watch` | Run tests in watch mode during development. |
+| `npm run test:cov` | Run unit tests with V8 coverage output in `./coverage`. |
+| `npm run test:e2e` | Run E2E tests (`test/**/*.e2e-spec.ts`) serially against the real app + DB. |
 
-## Documentación técnica
+Key notes:
 
-Para saber cómo usar una librería (NestJS, Prisma, TypeScript, Vitest, etc.):
+- **Decorators + Vitest**: compilation must go through **SWC** (`unplugin-swc`), not Oxc/esbuild. NestJS depends on `emitDecoratorMetadata`, so `oxc: false` in `vitest.config.ts` is required. Do not remove it.
+- Unit tests live **next to the code** they verify (`health.controller.spec.ts` beside `health.controller.ts`).
+- E2E tests live under `test/` with the `.e2e-spec.ts` suffix and use `supertest` against the Nest app.
+- Use `Test.createTestingModule` for DI-aware unit tests; use real DB integration via Testcontainers in E2E.
 
-1. **El código del repo primero** — la verdad del proyecto está en el proyecto.
-2. **Context7 (MCP)** — doc oficial viva y versionada, on-demand.
-3. **Conocimiento base** — solo para patrones estables; verificá lo que cambia rápido.
+## Technical documentation
 
-**No** crear skills con doc de librerías: envejecen y mienten. Las skills son solo para **convenciones de este proyecto** (ver tabla de [Skills](#skills)).
+To understand how to use a library from the stack (NestJS, Prisma, TypeScript, Vitest, Node), use this order:
+
+1. **Repo code first** — the project itself is the source of truth.
+2. **Local technical skills (`.agents/skills/`)** — pinned guidance for the actual stack versions in use. See [Project technical skills](#project-technical-skills-agentsskills).
+3. **Context7 (MCP)** — fallback for anything the local skill does not cover.
+4. **Base knowledge** — only for stable patterns; verify fast-moving details.
+
+Local technical skills are **versioned with the codebase** and pinned to concrete versions. If you upgrade a major dependency, update the relevant skill or fall back to Context7 for newer details.
 
 ## Skills
 
-Las skills son instrucciones especializadas que viven **fuera del repo** (instaladas por usuario en `~/.config/opencode/skills` y rutas equivalentes). **No las copies dentro del proyecto.** El índice canónico es:
+There are **two kinds** of skills. Before each task, identify the context and read the matching `SKILL.md` **before** writing code, tests, docs, or commits. Multiple skills may apply at once.
 
-```
-.atl/skill-registry.md
-```
+### Project technical skills (`.agents/skills/`)
 
-Antes de cualquier tarea, identificá el contexto y leé la `SKILL.md` correspondiente desde la ruta que figura en el registry:
+These live **inside the repo**, versioned with the codebase and pinned to the stack. They are the **first stop** before Context7.
 
-| Contexto de la tarea | Skill a leer |
+**Daily use** — most work lands here:
+
+| If you touch... | Skill | Path |
+|--------|-------|------|
+| Repo-specific hexagonal + screaming architecture decisions | `project-architecture` | `.agents/skills/project-architecture/SKILL.md` |
+| Repo-specific TDD, unit vs E2E, and verification rules | `project-tdd-testing` | `.agents/skills/project-tdd-testing/SKILL.md` |
+| NestJS code (modules, DI, guards, controllers, providers) | `nestjs-best-practices` | `.agents/skills/nestjs-best-practices/SKILL.md` |
+| Node architecture / async / security decisions | `nodejs-best-practices` | `.agents/skills/nodejs-best-practices/SKILL.md` |
+| Prisma Client queries (`findMany`, `create`, `$transaction`, filters) | `prisma-client-api` | `.agents/skills/prisma-client-api/SKILL.md` |
+| Prisma CLI commands (`generate`, `migrate`, `db`, `studio`) | `prisma-cli` | `.agents/skills/prisma-cli/SKILL.md` |
+| Advanced TypeScript types | `typescript-advanced-types` | `.agents/skills/typescript-advanced-types/SKILL.md` |
+| Tests with Vitest (mocking, coverage, fixtures, filtering) | `vitest` | `.agents/skills/vitest/SKILL.md` |
+
+**Secondary reference** — only when the task explicitly needs it:
+
+| If you touch... | Skill | Path |
+|--------|-------|------|
+| Node backend API / middleware / error-handling patterns | `nodejs-backend-patterns` | `.agents/skills/nodejs-backend-patterns/SKILL.md` |
+| Prisma provider setup / connection issues | `prisma-database-setup` | `.agents/skills/prisma-database-setup/SKILL.md` |
+| Prisma Postgres provisioning / Console / create-db | `prisma-postgres` | `.agents/skills/prisma-postgres/SKILL.md` |
+
+> `nodejs-backend-patterns` references Express/Fastify patterns, but the real framework here is **NestJS**. If guidance conflicts, `nestjs-best-practices` wins.
+
+### Workflow skills (`.atl/skill-registry.md`)
+
+These live **outside the repo** (installed in `~/.config/opencode/skills` and equivalent paths). **Do not copy them into the project.** The canonical index is `.atl/skill-registry.md`:
+
+| Task context | Skill to read |
 |----------------------|--------------|
-| Crear/abrir/preparar un Pull Request | `branch-pr` |
-| PR grande (>400 líneas) o trabajo en slices | `chained-pr` |
-| Planear commits como unidades revisables | `work-unit-commits` |
-| Escribir docs, READMEs, guías, onboarding | `cognitive-doc-design` |
-| Comentarios en PR/issues/reviews | `comment-writer` |
-| Crear issues / bug reports | `issue-creation` |
-| Review adversarial / dual review | `judgment-day` |
-| Crear una skill nueva | `skill-creator` |
-| Auditar/mejorar skills | `skill-improver` |
+| Create/open/prepare a Pull Request | `branch-pr` |
+| Large PR (>400 lines) or slice-based work | `chained-pr` |
+| Plan commits as reviewable work units | `work-unit-commits` |
+| Write docs, READMEs, guides, onboarding | `cognitive-doc-design` |
+| PR/issue/review comments | `comment-writer` |
+| Create issues / bug reports | `issue-creation` |
+| Adversarial / dual review | `judgment-day` |
+| Create a new skill | `skill-creator` |
+| Audit/improve skills | `skill-improver` |
 
-Protocolo:
+Protocol:
 
-1. Mirá la columna `Trigger / description` en `.atl/skill-registry.md`.
-2. Abrí la `SKILL.md` exacta de la ruta indicada **antes** de empezar a trabajar.
-3. Si ninguna skill aplica, seguí sin inyección de skills.
+1. Read the `Trigger / description` column in `.atl/skill-registry.md`.
+2. Open the exact `SKILL.md` at the listed path **before** starting work.
+3. If no workflow skill applies, proceed without loading one.
 
-Si agregás, quitás o cambiás skills, regenerá el índice:
+If you add, remove, or change workflow skills, regenerate the index:
 
 ```bash
 gentle-ai skill-registry refresh --force
 ```
 
-## Checklist antes de entregar
+## Checklist before handing off
 
-- [ ] Leíste la(s) skill(s) relevante(s) del registry.
-- [ ] El código respeta screaming architecture (dominio correcto, lógica fuera de `shared/`).
-- [ ] Tabs, comillas dobles, nombres `kebab-case.<rol>.ts`.
-- [ ] Hay tests nuevos/actualizados y `npm test` pasa.
-- [ ] Si tocaste HTTP/DB, `npm run test:e2e` pasa.
-- [ ] No hay secretos commiteados (`.env` está en `.gitignore`).
+- [ ] Read the relevant skill(s): technical (`.agents/skills/`) and/or workflow (`.atl/skill-registry.md`).
+- [ ] The code respects the hexagonal architecture (correct domain, `domain/` without framework imports, inward dependencies, business logic outside `shared/`).
+- [ ] For new features, followed TDD: red test first, minimal implementation second, refactor last.
+- [ ] Tabs, double quotes, `kebab-case.<role>.ts` names.
+- [ ] Added or updated tests and `npm test` passes.
+- [ ] If HTTP/DB flow changed, `npm run test:e2e` passes.
+- [ ] No secrets are committed (`.env` is in `.gitignore`).
