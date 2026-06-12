@@ -30,29 +30,43 @@ Guía operativa para agentes de IA y personas que trabajan en este repo. Leé es
 | Docs API | Swagger en `/docs` |
 | Testing | Vitest 4 + `unplugin-swc` + coverage v8, `supertest` para e2e |
 
-## Arquitectura (screaming architecture)
+## Arquitectura (hexagonal + screaming architecture)
 
-La estructura de `src/` **grita el dominio del negocio**, no el framework. Las carpetas de primer nivel son dominios de negocio; la infraestructura transversal es explícita y está separada.
+La estructura de `src/` **grita el dominio del negocio**, no el framework. Las carpetas de primer nivel son dominios de negocio; cada dominio es un **hexágono**: el núcleo define puertos (interfaces) y la infraestructura los implementa (adaptadores).
 
 ```
 src/
-  auth/          # dominio: autenticación
-  users/         # dominio: usuarios
-  groups/        # dominio: grupos
-  expenses/      # dominio: gastos
-  settlements/   # dominio: liquidaciones
-  shared/        # transversal: decorators, filters, guards, interceptors
-  config/        # transversal: configuración y validación de env
-  prisma/        # transversal: PrismaService + PrismaModule
-  app.module.ts  # raíz de composición
-  main.ts        # bootstrap
+  groups/                     # dominio de negocio (igual: auth, users, expenses, settlements)
+    domain/                   # núcleo puro: CERO imports de Nest/Prisma
+      entities/               #   entidades y value objects
+      ports/                  #   contratos: GroupRepository (driven), etc.
+      errors/                 #   errores de dominio
+    application/
+      use-cases/              #   orquestan el dominio vía puertos
+    infrastructure/
+      http/                   #   adaptador de entrada: controller + DTOs
+      persistence/            #   adaptador de salida: prisma-*.repository.ts
+    groups.module.ts          #   composición: bindea puerto → adaptador (DI)
+  health/                     # endpoint operacional, NO es dominio (sin hexágono)
+  shared/                     # transversal: decorators, filters, guards, interceptors
+  config/                     # transversal: configuración y validación de env
+  prisma/                     # transversal: PrismaService + PrismaModule
+  app.module.ts               # raíz de composición
+  main.ts                     # bootstrap
 ```
 
-Reglas:
+Reglas de dependencia (lo que hace que esto sea hexagonal de verdad):
 
-- Un dominio nuevo es una carpeta nueva bajo `src/`, con su propio `*.module.ts`, `*.controller.ts`, `*.service.ts` y DTOs.
-- La lógica de negocio vive en el dominio, **no** en `shared/`. `shared/` es solo para piezas reutilizables sin dominio (filtros HTTP, interceptors, decorators, guards).
-- El acceso a datos pasa por `PrismaService` (inyectado), nunca instanciando `PrismaClient` a mano.
+1. **`domain/` no importa NADA de framework** — ni `@nestjs/*`, ni `@prisma/*`, ni `class-validator`. Si un archivo de `domain/` importa infraestructura, está mal aunque la carpeta diga "domain".
+2. **Puertos como clases abstractas** (no `interface`): las interfaces de TS se borran en runtime y Nest no puede inyectarlas. La clase abstracta es token de DI y contrato a la vez.
+3. **El `*.module.ts` es el único que conoce ambos lados**: `{ provide: GroupRepository, useClass: PrismaGroupRepository }`.
+4. **La dirección de dependencia es siempre hacia adentro**: `infrastructure → application → domain`. Nunca al revés.
+
+Reglas generales:
+
+- Un dominio nuevo es una carpeta nueva bajo `src/` con la estructura hexagonal de arriba y su `*.module.ts`.
+- La lógica de negocio vive en `domain/` y `application/` del dominio, **no** en `shared/`. `shared/` es solo para piezas reutilizables sin dominio (filtros HTTP, interceptors, decorators, guards).
+- El acceso a datos pasa por adaptadores de `infrastructure/persistence/` que usan `PrismaService` (inyectado), nunca instanciando `PrismaClient` a mano. Los use cases NO ven Prisma: ven el puerto.
 - `config/` centraliza la lectura de env; los módulos consumen config tipada, no `process.env` directo.
 
 ## Convenciones
@@ -154,7 +168,7 @@ gentle-ai skill-registry refresh --force
 ## Checklist antes de entregar
 
 - [ ] Leíste la(s) skill(s) relevante(s): técnicas (`.agents/skills/`) y/o de flujo (`.atl/skill-registry.md`).
-- [ ] El código respeta screaming architecture (dominio correcto, lógica fuera de `shared/`).
+- [ ] El código respeta la arquitectura hexagonal (dominio correcto, `domain/` sin imports de framework, dependencias hacia adentro, lógica fuera de `shared/`).
 - [ ] Tabs, comillas dobles, nombres `kebab-case.<rol>.ts`.
 - [ ] Hay tests nuevos/actualizados y `npm test` pasa.
 - [ ] Si tocaste HTTP/DB, `npm run test:e2e` pasa.
