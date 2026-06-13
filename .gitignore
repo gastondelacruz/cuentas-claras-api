@@ -8,4 +8,6 @@ coverage
 
 # Agent tooling (setup personal, no viaja con el repo)
 .claude/
+.atl/.skill-registry.cache.json
+.vscode/
 skills-lock.json
