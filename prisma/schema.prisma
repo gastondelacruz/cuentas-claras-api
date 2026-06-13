@@ -13,6 +13,17 @@ enum SplitType {
   @@map("split_type")
 }
 
+enum GroupType {
+	TRIP    @map("trip")
+	HOME    @map("home")
+	COUPLE  @map("couple")
+	FRIENDS @map("friends")
+	EVENT   @map("event")
+	OTHER   @map("other")
+
+	@@map("group_type")
+}
+
 model User {
   id           String        @id @default(uuid()) @db.Uuid
   name         String
@@ -31,6 +42,7 @@ model Group {
   ownerUserId        String              @map("owner_user_id") @db.Uuid
   name               String
   description        String?
+  type               GroupType           @default(OTHER)
   currency           String
   archivedAt         DateTime?           @map("archived_at")
   createdAt          DateTime            @default(now()) @map("created_at")
