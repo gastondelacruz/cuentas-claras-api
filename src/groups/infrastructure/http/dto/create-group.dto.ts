@@ -12,7 +12,7 @@ import {
 	ValidateIf,
 	ValidateNested,
 } from "class-validator";
-import { GROUP_TYPES } from "../../../domain/entities/group-type";
+import { GROUP_TYPES } from "../../../domain/value-objects/group-type.vo";
 
 export class CreateGroupMemberDto {
 	@ApiProperty()

@@ -1,13 +1,13 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { DEV_USER_ID } from "../../../shared/constants/dev-user";
-import type { GroupDetail } from "../../domain/entities/group-detail";
+import type { GroupDetailReadModel } from "../read-models/group-detail.read-model";
 import { GroupRepository } from "../../domain/ports/group.repository";
 
 @Injectable()
 export class GetGroupDetailUseCase {
 	constructor(private readonly groupRepository: GroupRepository) {}
 
-	async execute(groupId: string): Promise<GroupDetail> {
+	async execute(groupId: string): Promise<GroupDetailReadModel> {
 		const group = await this.groupRepository.findDetailByIdAndOwner(
 			groupId,
 			DEV_USER_ID,

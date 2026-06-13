@@ -1,6 +1,6 @@
 import { Test, type TestingModule } from "@nestjs/testing";
 import { GroupRepository } from "../../domain/ports/group.repository";
-import { type GroupListItem } from "../../domain/entities/group-list-item";
+import { type GroupListItemReadModel } from "../read-models/group-list-item.read-model";
 import { ListGroupsUseCase } from "./list-groups.use-case";
 
 describe("ListGroupsUseCase", () => {
@@ -12,7 +12,7 @@ describe("ListGroupsUseCase", () => {
 	const now = new Date("2026-06-12T10:00:00.000Z");
 	const later = new Date("2026-06-13T10:00:00.000Z");
 
-	const groups: GroupListItem[] = [
+	const groups: GroupListItemReadModel[] = [
 		{
 			id: "group-1",
 			name: "Trip to Bariloche",

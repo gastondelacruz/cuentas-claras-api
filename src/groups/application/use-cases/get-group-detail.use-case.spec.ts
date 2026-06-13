@@ -2,11 +2,11 @@ import { NotFoundException } from "@nestjs/common";
 import { Test, type TestingModule } from "@nestjs/testing";
 import { GroupRepository } from "../../domain/ports/group.repository";
 import {
-	type GroupBalance,
-	type GroupDetail,
-	type GroupExpense,
-	type GroupMember,
-} from "../../domain/entities/group-detail";
+	type GroupBalanceReadModel,
+	type GroupDetailReadModel,
+	type GroupExpenseReadModel,
+	type GroupMemberReadModel,
+} from "../read-models/group-detail.read-model";
 import { GetGroupDetailUseCase } from "./get-group-detail.use-case";
 
 describe("GetGroupDetailUseCase", () => {
@@ -15,7 +15,7 @@ describe("GetGroupDetailUseCase", () => {
 		findDetailByIdAndOwner: ReturnType<typeof vi.fn>;
 	};
 
-	const members: GroupMember[] = [
+	const members: GroupMemberReadModel[] = [
 		{
 			id: "member-1",
 			displayName: "Development User",
@@ -24,9 +24,9 @@ describe("GetGroupDetailUseCase", () => {
 			removedAt: null,
 		},
 	];
-	const expenses: GroupExpense[] = [];
-	const balances: GroupBalance[] = [];
-	const groupDetail: GroupDetail = {
+	const expenses: GroupExpenseReadModel[] = [];
+	const balances: GroupBalanceReadModel[] = [];
+	const groupDetail: GroupDetailReadModel = {
 		id: "group-1",
 		name: "Trip to Bariloche",
 		description: "Shared expenses for the trip",

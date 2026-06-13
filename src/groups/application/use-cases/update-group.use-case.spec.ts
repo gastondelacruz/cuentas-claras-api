@@ -1,7 +1,7 @@
 import { NotFoundException } from "@nestjs/common";
 import { Test, type TestingModule } from "@nestjs/testing";
 import { GroupRepository } from "../../domain/ports/group.repository";
-import type { UpdateGroupPayload } from "../../domain/entities/update-group-payload";
+import type { UpdateGroupCommand } from "../commands/update-group.command";
 import { UpdateGroupUseCase } from "./update-group.use-case";
 
 describe("UpdateGroupUseCase", () => {
@@ -29,7 +29,7 @@ describe("UpdateGroupUseCase", () => {
 	});
 
 	it("updates a group for the dev user", async () => {
-		const payload: UpdateGroupPayload = {
+		const payload: UpdateGroupCommand = {
 			name: "Updated name",
 			description: "Updated description",
 			type: "trip",

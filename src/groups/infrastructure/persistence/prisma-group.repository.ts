@@ -1,10 +1,14 @@
 import { Injectable } from "@nestjs/common";
 import { GroupType as PrismaGroupType, type Prisma } from "@prisma/client";
-import type { CreateGroupPayload } from "../../domain/entities/create-group-payload";
-import type { GroupDetail } from "../../domain/entities/group-detail";
-import type { GroupType } from "../../domain/entities/group-type";
-import type { GroupListItem } from "../../domain/entities/group-list-item";
-import type { UpdateGroupPayload } from "../../domain/entities/update-group-payload";
+import type { CreateGroupCommand } from "../../application/commands/create-group.command";
+import type { UpdateGroupCommand } from "../../application/commands/update-group.command";
+import type { GroupDetailReadModel } from "../../application/read-models/group-detail.read-model";
+import type { GroupListItemReadModel } from "../../application/read-models/group-list-item.read-model";
+import { GroupEntity } from "../../domain/entities/group-entity";
+import { GroupMemberEntity } from "../../domain/entities/group-member-entity";
+import { Currency } from "../../domain/value-objects/currency.vo";
+import type { GroupType } from "../../domain/value-objects/group-type.vo";
+import { GroupName } from "../../domain/value-objects/group-name.vo";
 import {
 	type ArchivedGroup,
 	type CreatedGroupSummary,
@@ -22,7 +26,7 @@ export class PrismaGroupRepository extends GroupRepository {
 
 	async createForUser(
 		userId: string,
-		payload: CreateGroupPayload,
+		payload: CreateGroupCommand,
 	): Promise<CreatedGroupSummary> {
 		return this.prisma.$transaction(async (tx) => {
 			const user = await tx.user.findUniqueOrThrow({
@@ -35,14 +39,38 @@ export class PrismaGroupRepository extends GroupRepository {
 					email: true,
 				},
 			});
+			const domainGroup = new GroupEntity({
+				id: "pending",
+				name: payload.name,
+				description: payload.description ?? null,
+				type: payload.type,
+				currency: payload.currency,
+				members: [
+					new GroupMemberEntity({
+						id: "creator",
+						displayName: user.name,
+						email: user.email,
+						userId: user.id,
+					}),
+					...(payload.members ?? []).map(
+						(member, index) =>
+							new GroupMemberEntity({
+								id: `invited-${index}`,
+								displayName: member.displayName,
+								email: member.email ?? null,
+								userId: null,
+							}),
+					),
+				],
+			});
 
 			const group = await tx.group.create({
 				data: {
 					ownerUserId: user.id,
-					name: payload.name,
-					description: payload.description ?? null,
+					name: domainGroup.name.getValue(),
+					description: domainGroup.description,
 					type: toPrismaGroupType(payload.type),
-					currency: payload.currency,
+					currency: domainGroup.currency.getValue(),
 				},
 				select: {
 					id: true,
@@ -64,13 +92,17 @@ export class PrismaGroupRepository extends GroupRepository {
 				},
 			});
 
-			if (payload.members && payload.members.length > 0) {
+			const invitedMembers = domainGroup.members.filter(
+				(member) => !member.isCurrentUser(user.id),
+			);
+
+			if (invitedMembers.length > 0) {
 				await tx.groupMember.createMany({
-					data: payload.members.map((member) => ({
+					data: invitedMembers.map((member) => ({
 						groupId: group.id,
 						userId: null,
 						displayName: member.displayName,
-						email: member.email ?? null,
+						email: member.getEmailValue(),
 					})),
 				});
 			}
@@ -81,7 +113,7 @@ export class PrismaGroupRepository extends GroupRepository {
 				description: group.description,
 				type: fromPrismaGroupType(group.type),
 				currency: group.currency,
-				membersCount: (payload.members?.length ?? 0) + 1,
+				membersCount: domainGroup.members.length,
 				expensesCount: 0,
 				totalAmount: 0,
 				currentUserBalance: 0,
@@ -91,7 +123,7 @@ export class PrismaGroupRepository extends GroupRepository {
 		});
 	}
 
-	async listByUser(userId: string): Promise<GroupListItem[]> {
+	async listByUser(userId: string): Promise<GroupListItemReadModel[]> {
 		const groups = await this.prisma.group.findMany({
 			where: {
 				archivedAt: null,
@@ -121,7 +153,7 @@ export class PrismaGroupRepository extends GroupRepository {
 	async findDetailByIdAndOwner(
 		groupId: string,
 		ownerUserId: string,
-	): Promise<GroupDetail | null> {
+	): Promise<GroupDetailReadModel | null> {
 		const group = await this.prisma.group.findFirst({
 			where: {
 				id: groupId,
@@ -171,7 +203,7 @@ export class PrismaGroupRepository extends GroupRepository {
 	async updateByIdAndOwner(
 		groupId: string,
 		ownerUserId: string,
-		payload: UpdateGroupPayload,
+		payload: UpdateGroupCommand,
 	): Promise<GroupSummary | null> {
 		if (payload.members !== undefined) {
 			const members = payload.members;
@@ -259,11 +291,11 @@ export class PrismaGroupRepository extends GroupRepository {
 		};
 	}
 
-	private toUpdateData(payload: UpdateGroupPayload): Prisma.GroupUpdateInput {
+	private toUpdateData(payload: UpdateGroupCommand): Prisma.GroupUpdateInput {
 		const data: Prisma.GroupUpdateInput = {};
 
 		if (payload.name !== undefined) {
-			data.name = payload.name;
+			data.name = new GroupName(payload.name).getValue();
 		}
 
 		if (payload.description !== undefined) {
@@ -275,7 +307,7 @@ export class PrismaGroupRepository extends GroupRepository {
 		}
 
 		if (payload.currency !== undefined) {
-			data.currency = payload.currency;
+			data.currency = new Currency(payload.currency).getValue();
 		}
 
 		return data;
@@ -306,8 +338,10 @@ export class PrismaGroupRepository extends GroupRepository {
 	private async replaceGroupMembers(
 		client: Prisma.TransactionClient,
 		groupId: string,
-		members: NonNullable<UpdateGroupPayload["members"]>,
+		members: NonNullable<UpdateGroupCommand["members"]>,
 	) {
+		await this.assertReplacementMembersAreValid(client, groupId, members);
+
 		const replaceableMembers = await client.groupMember.findMany({
 			where: {
 				groupId,
@@ -323,17 +357,34 @@ export class PrismaGroupRepository extends GroupRepository {
 				continue;
 			}
 
-			const existingMembers = membersByEmail.get(member.email) ?? [];
+			const email = new GroupMemberEntity({
+				id: member.id,
+				displayName: member.displayName,
+				email: member.email,
+			}).getEmailValue();
+
+			if (!email) {
+				continue;
+			}
+
+			const existingMembers = membersByEmail.get(email) ?? [];
 			existingMembers.push(member);
-			membersByEmail.set(member.email, existingMembers);
+			membersByEmail.set(email, existingMembers);
 		}
 
 		const matchedMemberIds = new Set<string>();
 		const now = new Date();
 
 		for (const member of members) {
-			const matchedMember = member.email
-				? (membersByEmail.get(member.email) ?? []).find(
+			const normalizedEmail = member.email
+				? new GroupMemberEntity({
+					id: "replacement",
+					displayName: member.displayName,
+					email: member.email,
+				}).getEmailValue()
+				: null;
+			const matchedMember = normalizedEmail
+				? (membersByEmail.get(normalizedEmail) ?? []).find(
 					(candidate) => !matchedMemberIds.has(candidate.id),
 				)
 				: undefined;
@@ -345,7 +396,7 @@ export class PrismaGroupRepository extends GroupRepository {
 					},
 					data: {
 						displayName: member.displayName,
-						email: member.email ?? null,
+						email: normalizedEmail,
 						removedAt: null,
 					},
 				});
@@ -358,7 +409,7 @@ export class PrismaGroupRepository extends GroupRepository {
 					groupId,
 					userId: null,
 					displayName: member.displayName,
-					email: member.email ?? null,
+					email: normalizedEmail,
 					removedAt: null,
 				},
 				select: {
@@ -387,6 +438,68 @@ export class PrismaGroupRepository extends GroupRepository {
 				},
 			});
 		}
+	}
+
+	private async assertReplacementMembersAreValid(
+		client: Prisma.TransactionClient,
+		groupId: string,
+		members: NonNullable<UpdateGroupCommand["members"]>,
+	): Promise<void> {
+		const [group, currentMembers] = await Promise.all([
+			client.group.findUniqueOrThrow({
+				where: {
+					id: groupId,
+				},
+				select: {
+					id: true,
+					name: true,
+					description: true,
+					type: true,
+					currency: true,
+					createdAt: true,
+					updatedAt: true,
+				},
+			}),
+			client.groupMember.findMany({
+				where: {
+					groupId,
+					removedAt: null,
+				},
+			}),
+		]);
+
+		const domainGroup = new GroupEntity({
+			id: group.id,
+			name: group.name,
+			description: group.description,
+			type: fromPrismaGroupType(group.type),
+			currency: group.currency,
+			createdAt: group.createdAt,
+			updatedAt: group.updatedAt,
+			members: currentMembers.map(
+				(member) =>
+					new GroupMemberEntity({
+						id: member.id,
+						displayName: member.displayName,
+						email: member.email,
+						userId: member.userId,
+						removedAt: member.removedAt,
+					}),
+			),
+		});
+
+		domainGroup.replaceInvitedMembers(
+			members.map(
+				(member, index) =>
+					new GroupMemberEntity({
+						id: `replacement-${index}`,
+						displayName: member.displayName,
+						email: member.email ?? null,
+						userId: null,
+					}),
+			),
+			DEV_USER_ID,
+		);
 	}
 
 	private async loadGroupSummary(

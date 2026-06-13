@@ -1,6 +1,6 @@
 import { Test, type TestingModule } from "@nestjs/testing";
 import { GroupRepository } from "../../domain/ports/group.repository";
-import type { CreateGroupPayload } from "../../domain/entities/create-group-payload";
+import type { CreateGroupCommand } from "../commands/create-group.command";
 import { CreateGroupUseCase } from "./create-group.use-case";
 
 describe("CreateGroupUseCase", () => {
@@ -28,7 +28,7 @@ describe("CreateGroupUseCase", () => {
 	});
 
 	it("delegates creation to the repository using the dev user id", async () => {
-		const payload: CreateGroupPayload = {
+		const payload: CreateGroupCommand = {
 			name: "Trip to Bariloche",
 			description: "Shared expenses for the trip",
 			type: "trip",

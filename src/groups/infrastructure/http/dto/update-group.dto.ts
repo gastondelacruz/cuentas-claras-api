@@ -10,11 +10,11 @@ import {
 	ValidateIf,
 	ValidateNested,
 } from "class-validator";
-import { GROUP_TYPES } from "../../../domain/entities/group-type";
+import { GROUP_TYPES } from "../../../domain/value-objects/group-type.vo";
 import { CreateGroupMemberDto } from "./create-group.dto";
 import { AtLeastOneField } from "../validators/at-least-one-field.validator";
 
-	export class UpdateGroupDto {
+export class UpdateGroupDto {
 	@ApiPropertyOptional()
 	@ValidateIf((_, value) => value !== undefined)
 	@IsString()

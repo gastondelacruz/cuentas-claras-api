@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { DEV_USER_ID } from "../../../shared/constants/dev-user";
-import type { UpdateGroupPayload } from "../../domain/entities/update-group-payload";
+import type { UpdateGroupCommand } from "../commands/update-group.command";
 import type { GroupSummary } from "../../domain/ports/group.repository";
 import { GroupRepository } from "../../domain/ports/group.repository";
 
@@ -10,7 +10,7 @@ export class UpdateGroupUseCase {
 
 	async execute(
 		groupId: string,
-		payload: UpdateGroupPayload,
+		payload: UpdateGroupCommand,
 	): Promise<GroupSummary> {
 		const group = await this.groupRepository.updateByIdAndOwner(
 			groupId,
