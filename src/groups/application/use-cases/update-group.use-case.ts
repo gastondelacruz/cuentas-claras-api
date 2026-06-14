@@ -1,27 +1,24 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { DEV_USER_ID } from "../../../shared/constants/dev-user";
-import type { UpdateGroupCommand } from "../commands/update-group.command";
-import type { GroupSummary } from "../../domain/ports/group.repository";
+import type { GroupEntity } from "../../domain/entities/group-entity";
+import type { UpdateGroupPayload } from "../../domain/ports/group.repository";
 import { GroupRepository } from "../../domain/ports/group.repository";
 
 @Injectable()
 export class UpdateGroupUseCase {
-	constructor(private readonly groupRepository: GroupRepository) {}
+  constructor(private readonly groupRepository: GroupRepository) {}
 
-	async execute(
-		groupId: string,
-		payload: UpdateGroupCommand,
-	): Promise<GroupSummary> {
-		const group = await this.groupRepository.updateByIdAndOwner(
-			groupId,
-			DEV_USER_ID,
-			payload,
-		);
+	async execute(groupId: string, payload: UpdateGroupPayload): Promise<GroupEntity> {
+    const group = await this.groupRepository.updateByIdAndOwner(
+      groupId,
+      DEV_USER_ID,
+      payload,
+    );
 
-		if (!group) {
-			throw new NotFoundException("Group not found.");
-		}
+    if (!group) {
+      throw new NotFoundException("Group not found.");
+    }
 
-		return group;
-	}
+    return group;
+  }
 }

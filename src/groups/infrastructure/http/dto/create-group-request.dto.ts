@@ -1,7 +1,9 @@
-import { ApiPropertyOptional } from "@nestjs/swagger";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { Transform, Type } from "class-transformer";
 import {
+  ArrayMinSize,
   IsArray,
+  IsEmail,
   IsIn,
   IsNotEmpty,
   IsOptional,
@@ -11,16 +13,29 @@ import {
   ValidateNested,
 } from "class-validator";
 import { GROUP_TYPES } from "../../../domain/value-objects/group-type.vo";
-import { CreateGroupMemberDto } from "./create-group-request.dto";
-import { AtLeastOneField } from "../validators/at-least-one-field.validator";
 
-export class UpdateGroupDto {
-  @ApiPropertyOptional()
-  @ValidateIf((_, value) => value !== undefined)
+export class CreateGroupMemberDto {
+  @ApiProperty()
   @IsString()
   @IsNotEmpty()
   @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
-  name?: string;
+  displayName!: string;
+
+  @ApiPropertyOptional()
+  @ValidateIf((_, value) => value !== undefined)
+  @IsEmail()
+  @Transform(({ value }) =>
+    typeof value === "string" ? value.trim().toLowerCase() : value,
+  )
+  email?: string;
+}
+
+export class CreateGroupRequestDto {
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
+  name!: string;
 
   @ApiPropertyOptional({ nullable: true })
   @IsOptional()
@@ -28,26 +43,22 @@ export class UpdateGroupDto {
   @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
   description?: string | null;
 
-  @ApiPropertyOptional({ enum: GROUP_TYPES })
-  @ValidateIf((_, value) => value !== undefined)
+  @ApiProperty({ enum: GROUP_TYPES })
   @IsString()
   @IsIn(GROUP_TYPES)
-  type?: (typeof GROUP_TYPES)[number];
+  type!: (typeof GROUP_TYPES)[number];
 
-  @ApiPropertyOptional()
-  @ValidateIf((_, value) => value !== undefined)
+  @ApiProperty()
   @IsString()
   @Matches(/^[A-Z]{3}$/)
   @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
-  currency?: string;
+  currency!: string;
 
   @ApiPropertyOptional({ type: () => [CreateGroupMemberDto] })
   @ValidateIf((_, value) => value !== undefined)
   @IsArray()
+  @ArrayMinSize(0)
   @ValidateNested({ each: true })
   @Type(() => CreateGroupMemberDto)
   members?: CreateGroupMemberDto[];
-
-  @AtLeastOneField()
-  readonly atLeastOneField?: string;
 }

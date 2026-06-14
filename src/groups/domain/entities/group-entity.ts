@@ -12,6 +12,7 @@ export type GroupEntityProps = {
 	members?: GroupMemberEntity[];
 	createdAt?: Date;
 	updatedAt?: Date;
+	archivedAt?: Date | null;
 };
 
 export class GroupEntity {
@@ -22,6 +23,7 @@ export class GroupEntity {
 	readonly currency: Currency;
 	readonly createdAt?: Date;
 	readonly updatedAt?: Date;
+	readonly archivedAt: Date | null;
 	private readonly groupMembers: GroupMemberEntity[] = [];
 
 	constructor(props: GroupEntityProps) {
@@ -32,6 +34,7 @@ export class GroupEntity {
 		this.currency = props.currency instanceof Currency ? props.currency : new Currency(props.currency);
 		this.createdAt = props.createdAt;
 		this.updatedAt = props.updatedAt;
+		this.archivedAt = props.archivedAt ?? null;
 
 		for (const member of props.members ?? []) {
 			this.addMember(member);
@@ -69,6 +72,7 @@ export class GroupEntity {
 			members: [...preservedMembers, ...members],
 			createdAt: this.createdAt,
 			updatedAt: this.updatedAt,
+			archivedAt: this.archivedAt,
 		});
 	}
 

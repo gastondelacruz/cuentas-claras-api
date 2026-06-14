@@ -10,19 +10,19 @@ import { AtLeastOneFieldConstraint } from "./infrastructure/http/validators/at-l
 import { PrismaGroupRepository } from "./infrastructure/persistence/prisma-group.repository";
 
 @Module({
-	controllers: [GroupsController],
-	providers: [
-		CreateGroupUseCase,
-		ListGroupsUseCase,
-		GetGroupDetailUseCase,
-		UpdateGroupUseCase,
-		ArchiveGroupUseCase,
-		AtLeastOneFieldConstraint,
-		PrismaGroupRepository,
-		{
-			provide: GroupRepository,
-			useExisting: PrismaGroupRepository,
-		},
-	],
+  controllers: [GroupsController],
+  providers: [
+    CreateGroupUseCase,
+    ListGroupsUseCase,
+    GetGroupDetailUseCase,
+    UpdateGroupUseCase,
+    ArchiveGroupUseCase,
+    AtLeastOneFieldConstraint,
+    PrismaGroupRepository,
+    {
+      provide: GroupRepository,
+      useExisting: PrismaGroupRepository,
+    },
+  ],
 })
 export class GroupsModule {}

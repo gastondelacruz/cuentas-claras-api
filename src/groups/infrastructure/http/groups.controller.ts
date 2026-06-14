@@ -14,8 +14,10 @@ import { CreateGroupUseCase } from "../../application/use-cases/create-group.use
 import { GetGroupDetailUseCase } from "../../application/use-cases/get-group-detail.use-case";
 import { ListGroupsUseCase } from "../../application/use-cases/list-groups.use-case";
 import { UpdateGroupUseCase } from "../../application/use-cases/update-group.use-case";
-import { CreateGroupDto } from "./dto/create-group.dto";
+import { CreateGroupRequestDto } from "./dto/create-group-request.dto";
 import { UpdateGroupDto } from "./dto/update-group.dto";
+import { GroupMapper } from "./mappers/group.mapper";
+import { CreateGroupResponseDto } from "./dto/create-group-response.dto";
 
 @ApiTags("groups")
 @Controller("api/v1/groups")
@@ -28,36 +30,49 @@ export class GroupsController {
 		private readonly archiveGroupUseCase: ArchiveGroupUseCase,
 	) {}
 
-	@Post()
-	@ApiCreatedResponse()
-	create(@Body() body: CreateGroupDto) {
-		return this.createGroupUseCase.execute(body);
+  @Post()
+  @ApiCreatedResponse()
+	async create(@Body() body: CreateGroupRequestDto): Promise<CreateGroupResponseDto> {
+		const groupDomain = GroupMapper.toDomain(body);
+		const group = await this.createGroupUseCase.execute(groupDomain);
+		return GroupMapper.toCreateResponseDto(group);
 	}
 
-	@Get()
-	@ApiOkResponse()
-	list() {
-		return this.listGroupsUseCase.execute();
+  @Get()
+  @ApiOkResponse()
+	async list(): Promise<CreateGroupResponseDto[]> {
+		const groups = await this.listGroupsUseCase.execute();
+		return groups.map((group) => GroupMapper.toListResponseDto(group));
 	}
 
-	@Get(":groupId")
-	@ApiOkResponse()
-	getById(@Param("groupId", ParseUUIDPipe) groupId: string) {
-		return this.getGroupDetailUseCase.execute(groupId);
+  @Get(":groupId")
+  @ApiOkResponse()
+	async getById(
+		@Param("groupId", ParseUUIDPipe) groupId: string,
+	): Promise<CreateGroupResponseDto> {
+		const group = await this.getGroupDetailUseCase.execute(groupId);
+		return GroupMapper.toDetailResponseDto(group);
 	}
 
-	@Patch(":groupId")
-	@ApiOkResponse()
-	update(
+  @Patch(":groupId")
+  @ApiOkResponse()
+	async update(
 		@Param("groupId", ParseUUIDPipe) groupId: string,
 		@Body() body: UpdateGroupDto,
-	) {
-		return this.updateGroupUseCase.execute(groupId, body);
+	): Promise<CreateGroupResponseDto> {
+		const group = await this.updateGroupUseCase.execute(
+			groupId,
+			GroupMapper.toUpdatePayload(body),
+		);
+		return GroupMapper.toUpdateResponseDto(group);
 	}
 
-	@Delete(":groupId")
-	@ApiOkResponse()
-	archive(@Param("groupId", ParseUUIDPipe) groupId: string) {
-		return this.archiveGroupUseCase.execute(groupId);
+  @Delete(":groupId")
+  @ApiOkResponse()
+	async archive(
+		@Param("groupId", ParseUUIDPipe) groupId: string,
+	): Promise<CreateGroupResponseDto> {
+		const group = await this.archiveGroupUseCase.execute(groupId);
+		return GroupMapper.toArchiveResponseDto(group);
 	}
 }
