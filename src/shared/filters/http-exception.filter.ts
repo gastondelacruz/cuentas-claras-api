@@ -1,18 +1,26 @@
 import {
 	type ArgumentsHost,
+	BadRequestException,
 	Catch,
 	type ExceptionFilter,
 	HttpException,
 	HttpStatus,
 } from "@nestjs/common";
 import type { Request, Response } from "express";
+import {
+	ApplicationException,
+	type ApplicationExceptionType,
+} from "../exceptions/application.exception";
 
 type ErrorResponse = {
-	statusCode: number;
-	message: string | string[];
-	error: string;
-	timestamp: string;
-	path: string;
+	error: {
+		code: string;
+		message: string;
+		type: ApplicationExceptionType;
+		statusCode: number;
+		path: string;
+		timestamp: string;
+	};
 };
 
 @Catch()
@@ -22,72 +30,106 @@ export class HttpExceptionFilter implements ExceptionFilter {
 		const response = ctx.getResponse<Response>();
 		const request = ctx.getRequest<Request>();
 
-		const statusCode =
-			exception instanceof HttpException
-				? exception.getStatus()
-				: HttpStatus.INTERNAL_SERVER_ERROR;
+		const payload = this.normalizeResponse(exception, request.url);
 
-		const exceptionResponse =
-			exception instanceof HttpException ? exception.getResponse() : null;
-
-		const payload = this.normalizeResponse(
-			exceptionResponse,
-			statusCode,
-			request.url,
-		);
-
-		response.status(statusCode).json(payload);
+		response.status(payload.error.statusCode).json(payload);
 	}
 
-	private normalizeResponse(
-		exceptionResponse: string | object | null,
-		statusCode: number,
-		path: string,
-	): ErrorResponse {
-		if (typeof exceptionResponse === "object" && exceptionResponse !== null) {
-			const responseBody = exceptionResponse as Record<string, unknown>;
-
-			return {
-				statusCode,
-				message: this.normalizeMessage(responseBody.message),
-				error: this.normalizeError(responseBody.error, statusCode),
-				timestamp: new Date().toISOString(),
+	private normalizeResponse(exception: unknown, path: string): ErrorResponse {
+		if (exception instanceof ApplicationException) {
+			return this.createEnvelope({
+				code: exception.code,
+				message: exception.message,
+				type: exception.type,
+				statusCode: exception.statusCode,
 				path,
-			};
+			});
 		}
 
-		return {
-			statusCode,
-			message:
-				typeof exceptionResponse === "string"
-					? exceptionResponse
-					: "Internal server error",
-			error: this.normalizeError(null, statusCode),
-			timestamp: new Date().toISOString(),
+		if (exception instanceof HttpException) {
+			const statusCode = exception.getStatus();
+			const exceptionResponse = exception.getResponse();
+			const responseBody = this.getResponseBody(exceptionResponse);
+			const isValidationError = exception instanceof BadRequestException;
+
+			return this.createEnvelope({
+				code: this.normalizeCode(responseBody.code, statusCode, isValidationError),
+				message: this.normalizeMessage(
+					responseBody.message ?? exceptionResponse,
+					exception.message,
+				),
+				type: this.normalizeType(statusCode, isValidationError),
+				statusCode,
+				path,
+			});
+		}
+
+		return this.createEnvelope({
+			code: "UNEXPECTED_ERROR",
+			message: "Internal server error.",
+			type: "unexpected",
+			statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
 			path,
+		});
+	}
+
+	private createEnvelope(error: Omit<ErrorResponse["error"], "timestamp">) {
+		return {
+			error: {
+				...error,
+				timestamp: new Date().toISOString(),
+			},
 		};
 	}
 
-	private normalizeMessage(message: unknown): string | string[] {
-		if (
-			Array.isArray(message) &&
-			message.every((item) => typeof item === "string")
-		) {
-			return message;
+	private getResponseBody(
+		exceptionResponse: string | object,
+	): Record<string, unknown> {
+		if (typeof exceptionResponse === "object" && exceptionResponse !== null) {
+			return exceptionResponse as Record<string, unknown>;
+		}
+
+		return {
+			message: exceptionResponse,
+		};
+	}
+
+	private normalizeMessage(message: unknown, fallback: string): string {
+		if (Array.isArray(message)) {
+			return message.filter((item) => typeof item === "string").join("; ");
 		}
 
 		if (typeof message === "string") {
 			return message;
 		}
 
-		return "Internal server error";
+		return fallback || "HTTP error.";
 	}
 
-	private normalizeError(error: unknown, statusCode: number): string {
-		if (typeof error === "string") {
-			return error;
+	private normalizeCode(
+		code: unknown,
+		statusCode: number,
+		isValidationError: boolean,
+	): string {
+		if (typeof code === "string") {
+			return code;
 		}
 
-		return HttpStatus[statusCode] ?? "Error";
+		if (isValidationError) {
+			return "VALIDATION_ERROR";
+		}
+
+		return `HTTP_${statusCode}`;
+	}
+
+	private normalizeType(
+		statusCode: number,
+		isValidationError: boolean,
+	): ApplicationExceptionType {
+		if (isValidationError) {
+			return "validation";
+		}
+
+		return statusCode >= 500 ? "unexpected" : "business";
 	}
 }

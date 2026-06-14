@@ -1,0 +1,62 @@
+import { Test, type TestingModule } from "@nestjs/testing";
+import { BusinessException } from "../../../shared/exceptions/business.exception";
+import { GroupRepository } from "../../domain/ports/group.repository";
+import { GroupEntity } from "../../domain/entities/group-entity";
+import { ArchiveGroupUseCase } from "./archive-group.use-case";
+
+describe("ArchiveGroupUseCase", () => {
+  let useCase: ArchiveGroupUseCase;
+  let repository: {
+    archiveByIdAndOwner: ReturnType<typeof vi.fn>;
+  };
+
+  beforeEach(async () => {
+    repository = {
+      archiveByIdAndOwner: vi.fn(),
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ArchiveGroupUseCase,
+        {
+          provide: GroupRepository,
+          useValue: repository,
+        },
+      ],
+    }).compile();
+
+    useCase = module.get(ArchiveGroupUseCase);
+  });
+
+  it("archives a group with a soft delete", async () => {
+		const archivedGroup = new GroupEntity({
+			id: "group-1",
+			name: "Archived group",
+			type: "trip",
+			currency: "ARS",
+			archivedAt: new Date("2026-06-12T10:00:00.000Z"),
+		});
+
+    repository.archiveByIdAndOwner.mockResolvedValue(archivedGroup);
+
+    await expect(useCase.execute("group-1")).resolves.toEqual(archivedGroup);
+    expect(repository.archiveByIdAndOwner).toHaveBeenCalledWith(
+      "group-1",
+      "00000000-0000-0000-0000-000000000001",
+    );
+  });
+
+	it("throws BusinessException when the group is missing or not owned", async () => {
+		repository.archiveByIdAndOwner.mockResolvedValue(null);
+
+		await expect(useCase.execute("missing-group")).rejects.toMatchObject({
+			code: "GROUP_NOT_FOUND",
+			message: "Group not found.",
+			statusCode: 404,
+			type: "business",
+		});
+		await expect(useCase.execute("missing-group")).rejects.toBeInstanceOf(
+			BusinessException,
+		);
+	});
+});

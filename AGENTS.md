@@ -33,24 +33,7 @@ Operational guide for AI agents and humans working in this repo. Read this **bef
 
 ## Architecture
 
-Read `.agents/skills/project-architecture/SKILL.md` before changing `src/` structure, domain boundaries, ports, adapters, or Nest module wiring.
-
-Quick source-tree summary:
-
-```
-src/
-  groups/                     # business domain (same shape for auth, users, expenses, settlements)
-    domain/                   # pure core: no Nest/Prisma/framework imports
-    application/              # use cases
-    infrastructure/           # HTTP and persistence adapters
-    groups.module.ts          # composition root
-  health/                     # operational endpoint, not a business hexagon
-  shared/                     # cross-cutting decorators, filters, guards, interceptors
-  config/                     # configuration and env validation
-  prisma/                     # PrismaService + PrismaModule
-  app.module.ts               # root composition
-  main.ts                     # bootstrap
-```
+Read `.agents/skills/project-architecture/SKILL.md` before changing `src/` structure, domain boundaries, dependency direction, ports, adapters, DTO/domain mapping, persistence mapping, exception flow, or Nest module wiring.
 
 ## Conventions
 
@@ -63,7 +46,6 @@ src/
 | Type imports | `import { type Foo }` when an import is type-only. |
 | File names | `kebab-case.<role>.ts` (for example `current-user.decorator.ts`, `http-exception.filter.ts`). |
 | DTOs | Classes with `class-validator` decorators. |
-| HTTP responses | Uniform shape via `ResponseInterceptor` (`{ data: ... }`). |
 
 ## Testing
 
@@ -158,7 +140,7 @@ gentle-ai skill-registry refresh --force
 ## Checklist before handing off
 
 - [ ] Read the relevant skill(s): technical (`.agents/skills/`) and/or workflow (`.atl/skill-registry.md`).
-- [ ] The code respects the hexagonal architecture (correct domain, `domain/` without framework imports, inward dependencies, business logic outside `shared/`).
+- [ ] If architecture-sensitive code changed, `.agents/skills/project-architecture/SKILL.md` was read and followed.
 - [ ] For new features, followed TDD: red test first, minimal implementation second, refactor last.
 - [ ] Tabs, double quotes, `kebab-case.<role>.ts` names.
 - [ ] Added or updated tests and `npm test` passes.
