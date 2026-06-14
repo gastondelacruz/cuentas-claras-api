@@ -1,5 +1,5 @@
-import { NotFoundException } from "@nestjs/common";
 import { Test, type TestingModule } from "@nestjs/testing";
+import { BusinessException } from "../../../shared/exceptions/business.exception";
 import { GroupRepository } from "../../domain/ports/group.repository";
 import { GroupEntity } from "../../domain/entities/group-entity";
 import { ArchiveGroupUseCase } from "./archive-group.use-case";
@@ -46,11 +46,17 @@ describe("ArchiveGroupUseCase", () => {
     );
   });
 
-  it("throws NotFoundException when the group is missing or not owned", async () => {
-    repository.archiveByIdAndOwner.mockResolvedValue(null);
+	it("throws BusinessException when the group is missing or not owned", async () => {
+		repository.archiveByIdAndOwner.mockResolvedValue(null);
 
-    await expect(useCase.execute("missing-group")).rejects.toThrow(
-      NotFoundException,
-    );
-  });
+		await expect(useCase.execute("missing-group")).rejects.toMatchObject({
+			code: "GROUP_NOT_FOUND",
+			message: "Group not found.",
+			statusCode: 404,
+			type: "business",
+		});
+		await expect(useCase.execute("missing-group")).rejects.toBeInstanceOf(
+			BusinessException,
+		);
+	});
 });

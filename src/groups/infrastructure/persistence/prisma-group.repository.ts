@@ -7,6 +7,7 @@ import { Currency } from "../../domain/value-objects/currency.vo";
 import type { GroupType } from "../../domain/value-objects/group-type.vo";
 import { GroupName } from "../../domain/value-objects/group-name.vo";
 import { PrismaService } from "../../../prisma/prisma.service";
+import { DatabaseException } from "../../../shared/exceptions/database.exception";
 import { GroupRepository } from "../../domain/ports/group.repository";
 
 @Injectable()
@@ -15,14 +16,15 @@ export class PrismaGroupRepository extends GroupRepository {
     super();
   }
 
-  async createForUser(
-    userId: string,
-    payload: GroupEntity,
-  ): Promise<GroupEntity> {
-    return this.prisma.$transaction(async (tx) => {
-      const user = await tx.user.findUniqueOrThrow({
-        where: {
-          id: userId,
+	async createForUser(
+		userId: string,
+		payload: GroupEntity,
+	): Promise<GroupEntity> {
+		return this.runDatabaseOperation("GROUP_CREATE_DATABASE_ERROR", () =>
+			this.prisma.$transaction(async (tx) => {
+			const user = await tx.user.findUniqueOrThrow({
+				where: {
+					id: userId,
         },
         select: {
           id: true,
@@ -98,14 +100,16 @@ export class PrismaGroupRepository extends GroupRepository {
         });
       }
 
-		return this.loadGroupSummary(tx, group.id);
-	});
-}
+			return this.loadGroupSummary(tx, group.id);
+			}),
+		);
+	}
 
-  async listByUser(userId: string): Promise<GroupEntity[]> {
-    const groups = await this.prisma.group.findMany({
-      where: {
-        archivedAt: null,
+	async listByUser(userId: string): Promise<GroupEntity[]> {
+		return this.runDatabaseOperation("GROUP_LIST_DATABASE_ERROR", async () => {
+			const groups = await this.prisma.group.findMany({
+			where: {
+				archivedAt: null,
         groupMembers: {
           some: {
             userId,
@@ -124,30 +128,32 @@ export class PrismaGroupRepository extends GroupRepository {
       },
       orderBy: {
         updatedAt: "desc",
-      },
-    });
+			},
+		});
 
-    return groups.map(
-      (group) =>
-        new GroupEntity({
-          id: group.id,
-          name: group.name,
-          description: group.description,
-          type: fromPrismaGroupType(group.type),
-          currency: group.currency,
-          createdAt: group.createdAt,
-          updatedAt: group.updatedAt,
-        }),
-    );
-  }
+			return groups.map(
+				(group) =>
+					new GroupEntity({
+						id: group.id,
+						name: group.name,
+						description: group.description,
+						type: fromPrismaGroupType(group.type),
+						currency: group.currency,
+						createdAt: group.createdAt,
+						updatedAt: group.updatedAt,
+					}),
+			);
+		});
+	}
 
-  async findDetailByIdAndOwner(
-    groupId: string,
-    ownerUserId: string,
-  ): Promise<GroupEntity | null> {
-    const group = await this.prisma.group.findFirst({
-      where: {
-        id: groupId,
+	async findDetailByIdAndOwner(
+		groupId: string,
+		ownerUserId: string,
+	): Promise<GroupEntity | null> {
+		return this.runDatabaseOperation("GROUP_DETAIL_DATABASE_ERROR", async () => {
+			const group = await this.prisma.group.findFirst({
+			where: {
+				id: groupId,
         archivedAt: null,
         groupMembers: {
           some: {
@@ -166,40 +172,51 @@ export class PrismaGroupRepository extends GroupRepository {
           },
         },
       },
-    });
+		});
 
-    if (!group) {
-      return null;
-    }
+			if (!group) {
+				return null;
+			}
 
-    return new GroupEntity({
-      id: group.id,
-      name: group.name,
-      description: group.description,
+			return new GroupEntity({
+				id: group.id,
+				name: group.name,
+				description: group.description,
 			type: fromPrismaGroupType(group.type),
-      currency: group.currency,
-      createdAt: group.createdAt,
-      updatedAt: group.updatedAt,
-      members: group.groupMembers.map(
-        (member) =>
-          new GroupMemberEntity({
-            id: member.id,
-            displayName: member.displayName,
-            email: member.email,
-            userId: member.userId,
-            removedAt: member.removedAt,
-          }),
-      ),
-    });
-  }
+				currency: group.currency,
+				createdAt: group.createdAt,
+				updatedAt: group.updatedAt,
+				members: group.groupMembers.map(
+					(member) =>
+						new GroupMemberEntity({
+							id: member.id,
+							displayName: member.displayName,
+							email: member.email,
+							userId: member.userId,
+							removedAt: member.removedAt,
+						}),
+				),
+			});
+		});
+	}
 
 	async updateByIdAndOwner(
 		groupId: string,
 		ownerUserId: string,
 		payload: UpdateGroupPayload,
 	): Promise<GroupEntity | null> {
-    if (payload.members !== undefined) {
-      const members = payload.members;
+		return this.runDatabaseOperation("GROUP_UPDATE_DATABASE_ERROR", () =>
+			this.updateByIdAndOwnerUnsafe(groupId, ownerUserId, payload),
+		);
+	}
+
+	private async updateByIdAndOwnerUnsafe(
+		groupId: string,
+		ownerUserId: string,
+		payload: UpdateGroupPayload,
+	): Promise<GroupEntity | null> {
+		if (payload.members !== undefined) {
+			const members = payload.members;
 
       return this.prisma.$transaction(async (tx) => {
         const group = await this.findAccessibleGroup(tx, groupId, ownerUserId);
@@ -238,16 +255,17 @@ export class PrismaGroupRepository extends GroupRepository {
       data: this.toUpdateData(payload),
     });
 
-    return this.loadGroupSummary(this.prisma, group.id);
-  }
+		return this.loadGroupSummary(this.prisma, group.id);
+	}
 
 	async archiveByIdAndOwner(
 		groupId: string,
 		ownerUserId: string,
 	): Promise<GroupEntity | null> {
-		const group = await this.prisma.group.findFirst({
+		return this.runDatabaseOperation("GROUP_ARCHIVE_DATABASE_ERROR", async () => {
+			const group = await this.prisma.group.findFirst({
 			where: {
-        id: groupId,
+				id: groupId,
         archivedAt: null,
         groupMembers: {
           some: {
@@ -259,23 +277,39 @@ export class PrismaGroupRepository extends GroupRepository {
 			select: { id: true },
 		});
 
-		if (!group) {
-			return null;
-		}
+			if (!group) {
+				return null;
+			}
 
-    const archivedGroup = await this.prisma.group.update({
-      where: {
-        id: group.id,
-      },
-      data: {
-        archivedAt: new Date(),
-      },
+			const archivedGroup = await this.prisma.group.update({
+				where: {
+					id: group.id,
+				},
+				data: {
+					archivedAt: new Date(),
+				},
 			include: {
 				groupMembers: true,
 			},
 		});
 
-		return toDomainGroup(archivedGroup);
+			return toDomainGroup(archivedGroup);
+		});
+	}
+
+	private async runDatabaseOperation<T>(
+		code: string,
+		operation: () => Promise<T>,
+	): Promise<T> {
+		try {
+			return await operation();
+		} catch (error) {
+			if (error instanceof DatabaseException) {
+				throw error;
+			}
+
+			throw new DatabaseException(code);
+		}
 	}
 
 	private toUpdateData(payload: UpdateGroupPayload): Prisma.GroupUpdateInput {

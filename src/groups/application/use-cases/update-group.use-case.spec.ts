@@ -1,5 +1,5 @@
-import { NotFoundException } from "@nestjs/common";
 import { Test, type TestingModule } from "@nestjs/testing";
+import { BusinessException } from "../../../shared/exceptions/business.exception";
 import { GroupRepository } from "../../domain/ports/group.repository";
 import { GroupEntity } from "../../domain/entities/group-entity";
 import { GroupMemberEntity } from "../../domain/entities/group-member-entity";
@@ -66,11 +66,19 @@ describe("UpdateGroupUseCase", () => {
     );
   });
 
-  it("throws NotFoundException when the group is missing or not owned", async () => {
-    repository.updateByIdAndOwner.mockResolvedValue(null);
+	it("throws BusinessException when the group is missing or not owned", async () => {
+		repository.updateByIdAndOwner.mockResolvedValue(null);
 
-    await expect(
-      useCase.execute("missing-group", { name: "Updated name" }),
-    ).rejects.toThrow(NotFoundException);
-  });
+		await expect(
+			useCase.execute("missing-group", { name: "Updated name" }),
+		).rejects.toMatchObject({
+			code: "GROUP_NOT_FOUND",
+			message: "Group not found.",
+			statusCode: 404,
+			type: "business",
+		});
+		await expect(
+			useCase.execute("missing-group", { name: "Updated name" }),
+		).rejects.toBeInstanceOf(BusinessException);
+	});
 });

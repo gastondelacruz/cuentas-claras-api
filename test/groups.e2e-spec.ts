@@ -991,7 +991,14 @@ describe("Groups endpoints (e2e)", () => {
 			.send({})
 			.expect(400);
 
-		expect(response.body.message).toContain("At least one field must be provided.");
+		expect(response.body.error).toEqual({
+			code: "VALIDATION_ERROR",
+			message: expect.stringContaining("At least one field must be provided."),
+			type: "validation",
+			statusCode: 400,
+			path: `/api/v1/groups/${group.id}`,
+			timestamp: expect.any(String),
+		});
 	});
 
 	it("PATCH /api/v1/groups/:groupId rejects null for non-nullable optional fields", async () => {
@@ -1149,10 +1156,21 @@ describe("Groups endpoints (e2e)", () => {
 			.expect(200);
 	});
 
-	it("DELETE /api/v1/groups/:groupId returns 404 when the group does not exist", async () => {
-		await request(app.getHttpServer())
+	it("DELETE /api/v1/groups/:groupId returns the business error envelope when the group does not exist", async () => {
+		const response = await request(app.getHttpServer())
 			.delete("/api/v1/groups/11111111-1111-1111-1111-111111111111")
 			.expect(404);
+
+		expect(response.body).toEqual({
+			error: {
+				code: "GROUP_NOT_FOUND",
+				message: "Group not found.",
+				type: "business",
+				statusCode: 404,
+				path: "/api/v1/groups/11111111-1111-1111-1111-111111111111",
+				timestamp: expect.any(String),
+			},
+		});
 	});
 
 	it("DELETE /api/v1/groups/:groupId returns 404 when the dev user is not an active member", async () => {
