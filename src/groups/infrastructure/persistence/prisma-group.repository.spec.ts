@@ -35,4 +35,33 @@ describe("PrismaGroupRepository", () => {
 			type: "database",
 		});
 	});
+
+	it("wraps balance ledger database failures in a safe DatabaseException", async () => {
+		const prisma = {
+			group: {
+				findFirst: vi
+					.fn()
+					.mockRejectedValue(new Error("raw database failure")),
+			},
+		};
+		const repository = new PrismaGroupRepository(prisma as never);
+
+		await expect(
+			repository.findGroupLedgerForUser({
+				groupId: "group-1",
+				userId: "user-1",
+			}),
+		).rejects.toMatchObject({
+			code: "GROUP_BALANCES_DATABASE_ERROR",
+			message: "A database error occurred.",
+			statusCode: 500,
+			type: "database",
+		});
+		await expect(
+			repository.findGroupLedgerForUser({
+				groupId: "group-1",
+				userId: "user-1",
+			}),
+		).rejects.toBeInstanceOf(DatabaseException);
+	});
 });

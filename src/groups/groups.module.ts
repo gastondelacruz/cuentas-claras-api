@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { ArchiveGroupUseCase } from "./application/use-cases/archive-group.use-case";
 import { CreateGroupUseCase } from "./application/use-cases/create-group.use-case";
+import { GetGroupBalancesUseCase } from "./application/use-cases/get-group-balances.use-case";
 import { GetGroupDetailUseCase } from "./application/use-cases/get-group-detail.use-case";
 import { ListGroupsUseCase } from "./application/use-cases/list-groups.use-case";
 import { UpdateGroupUseCase } from "./application/use-cases/update-group.use-case";
@@ -17,6 +18,7 @@ import { PrismaGroupRepository } from "./infrastructure/persistence/prisma-group
     GetGroupDetailUseCase,
     UpdateGroupUseCase,
     ArchiveGroupUseCase,
+    GetGroupBalancesUseCase,
     AtLeastOneFieldConstraint,
     PrismaGroupRepository,
     {

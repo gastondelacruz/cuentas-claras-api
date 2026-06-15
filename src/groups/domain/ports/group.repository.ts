@@ -12,6 +12,30 @@ export type UpdateGroupPayload = {
 	members?: GroupMemberEntity[];
 };
 
+export type GroupLedgerMember = {
+	memberId: string;
+	displayName: string;
+};
+
+export type GroupLedgerSplit = {
+	memberId: string;
+	netAmount: number;
+	currency: string;
+};
+
+export type GroupLedgerSettlement = {
+	fromMemberId: string;
+	toMemberId: string;
+	amount: number;
+	currency: string;
+};
+
+export type GroupLedger = {
+	members: GroupLedgerMember[];
+	splits: GroupLedgerSplit[];
+	settlements: GroupLedgerSettlement[];
+};
+
 export abstract class GroupRepository {
 	abstract createForUser(userId: string, payload: GroupEntity): Promise<GroupEntity>;
 
@@ -32,4 +56,9 @@ export abstract class GroupRepository {
 		groupId: string,
 		ownerUserId: string,
 	): Promise<GroupEntity | null>;
+
+	abstract findGroupLedgerForUser(input: {
+		groupId: string;
+		userId: string;
+	}): Promise<GroupLedger | null>;
 }
