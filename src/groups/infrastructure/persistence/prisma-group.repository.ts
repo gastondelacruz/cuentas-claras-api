@@ -1,7 +1,10 @@
 import { Injectable } from "@nestjs/common";
 import { GroupType as PrismaGroupType, type Prisma } from "@prisma/client";
 import type {
+	GroupMemberRef,
 	GroupLedger,
+	RecordSettlementPaymentPayload,
+	SettlementPaymentRef,
 	UpdateGroupPayload,
 } from "../../domain/ports/group.repository";
 import { GroupEntity } from "../../domain/entities/group-entity";
@@ -387,6 +390,112 @@ export class PrismaGroupRepository extends GroupRepository {
 				};
 			},
 		);
+	}
+
+	async findActiveGroupMembersForUser(input: {
+		groupId: string;
+		userId: string;
+	}): Promise<GroupMemberRef[] | null> {
+		return this.runDatabaseOperation(
+			"GROUP_MEMBERS_DATABASE_ERROR",
+			async () => {
+				const group = await this.prisma.group.findFirst({
+					where: {
+						id: input.groupId,
+						archivedAt: null,
+						groupMembers: {
+							some: {
+								userId: input.userId,
+								removedAt: null,
+							},
+						},
+					},
+					select: {
+						id: true,
+					},
+				});
+
+				if (!group) {
+					return null;
+				}
+
+				const members = await this.prisma.groupMember.findMany({
+					where: {
+						groupId: input.groupId,
+						removedAt: null,
+					},
+					select: {
+						id: true,
+						displayName: true,
+					},
+					orderBy: {
+						createdAt: "asc",
+					},
+				});
+
+				return members.map((member) => ({
+					memberId: member.id,
+					displayName: member.displayName,
+				}));
+			},
+		);
+	}
+
+	async recordSettlementPayment(
+		payload: RecordSettlementPaymentPayload,
+	): Promise<SettlementPaymentRef> {
+		return this.runDatabaseOperation("SETTLEMENT_CREATE_DATABASE_ERROR", async () => {
+			const created = await this.prisma.settlementPayment.create({
+				data: {
+					groupId: payload.groupId,
+					fromMemberId: payload.fromMemberId,
+					toMemberId: payload.toMemberId,
+					amount: payload.amount.toFixed(2),
+					currency: payload.currency,
+					paidAt: payload.paidAt,
+					notes: payload.notes,
+				},
+				select: {
+					id: true,
+					groupId: true,
+					amount: true,
+					currency: true,
+					paidAt: true,
+					notes: true,
+					createdAt: true,
+					fromMember: {
+						select: {
+							id: true,
+							displayName: true,
+						},
+					},
+					toMember: {
+						select: {
+							id: true,
+							displayName: true,
+						},
+					},
+				},
+			});
+
+			return {
+				id: created.id,
+				groupId: created.groupId,
+				fromMember: {
+					id: created.fromMember.id,
+					displayName: created.fromMember.displayName,
+				},
+				toMember: {
+					id: created.toMember.id,
+					displayName: created.toMember.displayName,
+				},
+				amount: decimalToNumber(created.amount),
+				currency: created.currency,
+				paidAt: created.paidAt,
+				notes: created.notes,
+				createdAt: created.createdAt,
+			};
+		});
 	}
 
 	private async runDatabaseOperation<T>(

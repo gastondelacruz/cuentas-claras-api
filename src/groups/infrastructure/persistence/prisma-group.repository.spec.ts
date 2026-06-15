@@ -64,4 +64,53 @@ describe("PrismaGroupRepository", () => {
 			}),
 		).rejects.toBeInstanceOf(DatabaseException);
 	});
+
+	it("wraps active group member lookup failures in a safe DatabaseException", async () => {
+		const prisma = {
+			group: {
+				findFirst: vi
+					.fn()
+					.mockRejectedValue(new Error("raw database failure")),
+			},
+		};
+		const repository = new PrismaGroupRepository(prisma as never);
+
+		await expect(
+			repository.findActiveGroupMembersForUser({
+				groupId: "group-1",
+				userId: "user-1",
+			}),
+		).rejects.toMatchObject({
+			code: "GROUP_MEMBERS_DATABASE_ERROR",
+			message: "A database error occurred.",
+			statusCode: 500,
+			type: "database",
+		});
+	});
+
+	it("wraps settlement payment create failures in a safe DatabaseException", async () => {
+		const prisma = {
+			settlementPayment: {
+				create: vi.fn().mockRejectedValue(new Error("raw database failure")),
+			},
+		};
+		const repository = new PrismaGroupRepository(prisma as never);
+
+		await expect(
+			repository.recordSettlementPayment({
+				groupId: "group-1",
+				fromMemberId: "from-member",
+				toMemberId: "to-member",
+				amount: 15000,
+				currency: "ARS",
+				paidAt: new Date("2026-06-15T12:00:00.000Z"),
+				notes: null,
+			}),
+		).rejects.toMatchObject({
+			code: "SETTLEMENT_CREATE_DATABASE_ERROR",
+			message: "A database error occurred.",
+			statusCode: 500,
+			type: "database",
+		});
+	});
 });
