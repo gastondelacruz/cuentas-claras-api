@@ -585,6 +585,335 @@ describe("Expenses endpoints (e2e)", () => {
 		});
 	});
 
+	it("PATCH /api/v1/expenses/:expenseId updates fields and recalculates equal splits", async () => {
+		const { group, members } = await createAccessibleGroupWithMembers([
+			"Gaston",
+			"Ana",
+			"Mora",
+		]);
+		const [, gaston, ana, mora] = members;
+		const expense = await createPersistedExpense({
+			groupId: group.id,
+			paidByMemberId: gaston.id,
+			participantMemberIds: [gaston.id, ana.id],
+			title: "Dinner",
+			expenseDate: new Date("2026-06-13T20:00:00.000Z"),
+		});
+
+		const response = await request(app.getHttpServer())
+			.patch(`/api/v1/expenses/${expense.id}`)
+			.send({
+				title: "Updated dinner",
+				amount: 35000,
+				paidByMemberId: ana.id,
+				participantMemberIds: [ana.id, mora.id],
+				notes: "Updated notes",
+				expenseDate: "2026-06-14T20:00:00.000Z",
+			})
+			.expect(200);
+
+		expect(response.body).toEqual({
+			data: {
+				id: expense.id,
+				groupId: group.id,
+				title: "Updated dinner",
+				amount: 35000,
+				currency: "ARS",
+				paidBy: { id: ana.id, displayName: "Ana" },
+				participants: [
+					{
+						memberId: ana.id,
+						displayName: "Ana",
+						owedAmount: 17500,
+						paidAmount: 35000,
+						netAmount: 17500,
+					},
+					{
+						memberId: mora.id,
+						displayName: "Mora",
+						owedAmount: 17500,
+						paidAmount: 0,
+						netAmount: -17500,
+					},
+				],
+				splitType: "equal",
+				category: "food",
+				notes: "Updated notes",
+				expenseDate: "2026-06-14T20:00:00.000Z",
+				createdAt: expect.any(String),
+				updatedAt: expect.any(String),
+			},
+		});
+
+		const persistedSplits = await prisma.expenseSplit.findMany({
+			where: { expenseId: expense.id },
+			orderBy: { createdAt: "asc" },
+		});
+		expect(persistedSplits).toHaveLength(2);
+		expect(persistedSplits.map((split) => split.memberId)).toEqual([
+			ana.id,
+			mora.id,
+		]);
+	});
+
+	it("PATCH /api/v1/expenses/:expenseId with metadata only preserves participants and splits", async () => {
+		const { group, members } = await createAccessibleGroupWithMembers([
+			"Gaston",
+			"Ana",
+		]);
+		const [, gaston, ana] = members;
+		const expense = await createPersistedExpense({
+			groupId: group.id,
+			paidByMemberId: gaston.id,
+			participantMemberIds: [gaston.id, ana.id],
+			title: "Dinner",
+			expenseDate: new Date("2026-06-13T20:00:00.000Z"),
+		});
+		const originalSplits = await prisma.expenseSplit.findMany({
+			where: { expenseId: expense.id },
+			orderBy: { createdAt: "asc" },
+		});
+
+		const response = await request(app.getHttpServer())
+			.patch(`/api/v1/expenses/${expense.id}`)
+			.send({
+				title: "Updated dinner title",
+				category: "transport",
+				notes: "Updated notes only",
+				expenseDate: "2026-06-14T20:00:00.000Z",
+			})
+			.expect(200);
+
+		expect(response.body.data).toMatchObject({
+			id: expense.id,
+			groupId: group.id,
+			title: "Updated dinner title",
+			amount: 30000,
+			currency: "ARS",
+			paidBy: { id: gaston.id, displayName: "Gaston" },
+			participants: [
+				{
+					memberId: gaston.id,
+					displayName: "Gaston",
+					owedAmount: 15000,
+					paidAmount: 30000,
+					netAmount: 15000,
+				},
+				{
+					memberId: ana.id,
+					displayName: "Ana",
+					owedAmount: 15000,
+					paidAmount: 0,
+					netAmount: -15000,
+				},
+			],
+			splitType: "equal",
+			category: "transport",
+			notes: "Updated notes only",
+			expenseDate: "2026-06-14T20:00:00.000Z",
+		});
+
+		const persistedSplits = await prisma.expenseSplit.findMany({
+			where: { expenseId: expense.id },
+			orderBy: { createdAt: "asc" },
+		});
+		expect(
+			persistedSplits.map((split) => ({
+				id: split.id,
+				memberId: split.memberId,
+				owedAmount: split.owedAmount.toString(),
+				paidAmount: split.paidAmount.toString(),
+				netAmount: split.netAmount.toString(),
+			})),
+		).toEqual(
+			originalSplits.map((split) => ({
+				id: split.id,
+				memberId: split.memberId,
+				owedAmount: split.owedAmount.toString(),
+				paidAmount: split.paidAmount.toString(),
+				netAmount: split.netAmount.toString(),
+			})),
+		);
+	});
+
+	it("PATCH /api/v1/expenses/:expenseId with metadata only succeeds when a split participant was removed", async () => {
+		const { group, members } = await createAccessibleGroupWithMembers([
+			"Gaston",
+			"Ana",
+		]);
+		const [, gaston, ana] = members;
+		const expense = await createPersistedExpense({
+			groupId: group.id,
+			paidByMemberId: gaston.id,
+			participantMemberIds: [gaston.id, ana.id],
+			title: "Dinner",
+			expenseDate: new Date("2026-06-13T20:00:00.000Z"),
+		});
+		const originalSplits = await prisma.expenseSplit.findMany({
+			where: { expenseId: expense.id },
+			orderBy: { createdAt: "asc" },
+		});
+
+		await prisma.groupMember.update({
+			where: { id: ana.id },
+			data: { removedAt: new Date("2026-06-14T12:00:00.000Z") },
+		});
+
+		const response = await request(app.getHttpServer())
+			.patch(`/api/v1/expenses/${expense.id}`)
+			.send({ notes: "Metadata changed after member removal" })
+			.expect(200);
+
+		expect(response.body.data.participants).toEqual([
+			{
+				memberId: gaston.id,
+				displayName: "Gaston",
+				owedAmount: 15000,
+				paidAmount: 30000,
+				netAmount: 15000,
+			},
+			{
+				memberId: ana.id,
+				displayName: "Ana",
+				owedAmount: 15000,
+				paidAmount: 0,
+				netAmount: -15000,
+			},
+		]);
+		expect(response.body.data.notes).toBe(
+			"Metadata changed after member removal",
+		);
+
+		const persistedSplits = await prisma.expenseSplit.findMany({
+			where: { expenseId: expense.id },
+			orderBy: { createdAt: "asc" },
+		});
+		expect(persistedSplits.map((split) => split.id)).toEqual(
+			originalSplits.map((split) => split.id),
+		);
+	});
+
+	it("PATCH /api/v1/expenses/:expenseId returns 400 for invalid payloads", async () => {
+		const { group, members } = await createAccessibleGroupWithMembers([
+			"Gaston",
+			"Ana",
+		]);
+		const [, gaston, ana] = members;
+		const expense = await createPersistedExpense({
+			groupId: group.id,
+			paidByMemberId: gaston.id,
+			participantMemberIds: [gaston.id, ana.id],
+			title: "Dinner",
+			expenseDate: new Date("2026-06-13T20:00:00.000Z"),
+		});
+
+		for (const body of [
+			{ title: "" },
+			{ amount: 0 },
+			{ paidByMemberId: "not-a-uuid" },
+			{ participantMemberIds: [] },
+			{ splitType: "custom" },
+			{ expenseDate: "not-a-date" },
+		]) {
+			await request(app.getHttpServer())
+				.patch(`/api/v1/expenses/${expense.id}`)
+				.send(body)
+				.expect(400);
+		}
+	});
+
+	it("PATCH /api/v1/expenses/:expenseId returns 404 for a deleted expense", async () => {
+		const { group, members } = await createAccessibleGroupWithMembers([
+			"Gaston",
+			"Ana",
+		]);
+		const [, gaston, ana] = members;
+		const expense = await createPersistedExpense({
+			groupId: group.id,
+			paidByMemberId: gaston.id,
+			participantMemberIds: [gaston.id, ana.id],
+			title: "Deleted Dinner",
+			expenseDate: new Date("2026-06-13T20:00:00.000Z"),
+			deletedAt: new Date("2026-06-14T20:00:00.000Z"),
+		});
+
+		const response = await request(app.getHttpServer())
+			.patch(`/api/v1/expenses/${expense.id}`)
+			.send({ title: "Updated" })
+			.expect(404);
+
+		expect(response.body.error).toMatchObject({
+			code: "EXPENSE_NOT_FOUND",
+			type: "business",
+			statusCode: 404,
+		});
+	});
+
+	it("DELETE /api/v1/expenses/:expenseId soft deletes an accessible expense", async () => {
+		const { group, members } = await createAccessibleGroupWithMembers([
+			"Gaston",
+			"Ana",
+		]);
+		const [, gaston, ana] = members;
+		const expense = await createPersistedExpense({
+			groupId: group.id,
+			paidByMemberId: gaston.id,
+			participantMemberIds: [gaston.id, ana.id],
+			title: "Dinner",
+			expenseDate: new Date("2026-06-13T20:00:00.000Z"),
+		});
+
+		const response = await request(app.getHttpServer())
+			.delete(`/api/v1/expenses/${expense.id}`)
+			.expect(200);
+
+		expect(response.body).toEqual({
+			data: {
+				id: expense.id,
+				deletedAt: expect.any(String),
+			},
+		});
+
+		const deleted = await prisma.expense.findUniqueOrThrow({
+			where: { id: expense.id },
+		});
+		expect(deleted.deletedAt).toBeInstanceOf(Date);
+
+		await request(app.getHttpServer())
+			.get(`/api/v1/expenses/${expense.id}`)
+			.expect(404);
+
+		const listResponse = await request(app.getHttpServer())
+			.get(`/api/v1/groups/${group.id}/expenses`)
+			.expect(200);
+		expect(listResponse.body.data.expenses).toEqual([]);
+	});
+
+	it("DELETE /api/v1/expenses/:expenseId returns 404 for an inaccessible expense", async () => {
+		const { group, members } = await createInaccessibleGroupWithMembers([
+			"Gaston",
+			"Ana",
+		]);
+		const [gaston, ana] = members;
+		const expense = await createPersistedExpense({
+			groupId: group.id,
+			paidByMemberId: gaston.id,
+			participantMemberIds: [gaston.id, ana.id],
+			title: "Private Dinner",
+			expenseDate: new Date("2026-06-13T20:00:00.000Z"),
+		});
+
+		const response = await request(app.getHttpServer())
+			.delete(`/api/v1/expenses/${expense.id}`)
+			.expect(404);
+
+		expect(response.body.error).toMatchObject({
+			code: "EXPENSE_NOT_FOUND",
+			type: "business",
+			statusCode: 404,
+		});
+	});
+
 	it("POST distributes remainder cents so the split stays exact", async () => {
 		const { group, members } = await createGroupWithMembers(["A", "B", "C"]);
 		const [a, b, c] = members;

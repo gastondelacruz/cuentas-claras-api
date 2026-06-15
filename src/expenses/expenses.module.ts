@@ -1,7 +1,9 @@
 import { Module } from "@nestjs/common";
 import { CreateExpenseUseCase } from "./application/use-cases/create-expense.use-case";
+import { DeleteExpenseUseCase } from "./application/use-cases/delete-expense.use-case";
 import { GetExpenseDetailUseCase } from "./application/use-cases/get-expense-detail.use-case";
 import { ListGroupExpensesUseCase } from "./application/use-cases/list-group-expenses.use-case";
+import { UpdateExpenseUseCase } from "./application/use-cases/update-expense.use-case";
 import { ExpenseRepository } from "./domain/ports/expense.repository";
 import {
 	ExpenseDetailController,
@@ -13,6 +15,8 @@ import { PrismaExpenseRepository } from "./infrastructure/persistence/prisma-exp
 	controllers: [ExpensesController, ExpenseDetailController],
 	providers: [
 		CreateExpenseUseCase,
+		UpdateExpenseUseCase,
+		DeleteExpenseUseCase,
 		ListGroupExpensesUseCase,
 		GetExpenseDetailUseCase,
 		PrismaExpenseRepository,

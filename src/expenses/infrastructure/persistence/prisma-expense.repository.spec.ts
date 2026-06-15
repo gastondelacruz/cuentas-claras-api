@@ -66,6 +66,68 @@ describe("PrismaExpenseRepository", () => {
 		});
 	});
 
+	it("updates expense metadata without deleting or recreating splits when split replacement is disabled", async () => {
+		const updatedRecord = {
+			id: "expense-1",
+			groupId: "group-1",
+			title: "Updated title",
+			amount: { toNumber: () => 30000 },
+			currency: "USD",
+			paidByMember: { id: "member-a", displayName: "Gaston" },
+			expenseSplits: [
+				{
+					memberId: "member-a",
+					member: { displayName: "Gaston" },
+					owedAmount: { toNumber: () => 15000 },
+					paidAmount: { toNumber: () => 30000 },
+					netAmount: { toNumber: () => 15000 },
+				},
+			],
+			splitType: "EQUAL",
+			category: "transport",
+			notes: "Taxi",
+			expenseDate: new Date("2026-06-14T20:00:00.000Z"),
+			createdAt: new Date("2026-06-13T21:00:00.000Z"),
+			updatedAt: new Date("2026-06-14T21:00:00.000Z"),
+		};
+		const tx = {
+			expense: {
+				update: vi.fn().mockResolvedValue({}),
+				findUniqueOrThrow: vi.fn().mockResolvedValue(updatedRecord),
+			},
+			expenseSplit: {
+				deleteMany: vi.fn(),
+				createMany: vi.fn(),
+			},
+		};
+		const prisma = {
+			$transaction: vi.fn((callback) => callback(tx)),
+		};
+		const repository = new PrismaExpenseRepository(prisma as never);
+
+		await repository.update(
+			"expense-1",
+			{
+				id: "expense-1",
+				groupId: "group-1",
+				title: "Updated title",
+				amountValue: 30000,
+				currency: "USD",
+				paidByMemberId: "member-a",
+				splitType: "equal",
+				category: "transport",
+				notes: "Taxi",
+				expenseDate: new Date("2026-06-14T20:00:00.000Z"),
+				splits: [],
+			} as never,
+			{ replaceSplits: false },
+		);
+
+		expect(tx.expense.update).toHaveBeenCalledTimes(1);
+		expect(tx.expenseSplit.deleteMany).not.toHaveBeenCalled();
+		expect(tx.expenseSplit.createMany).not.toHaveBeenCalled();
+	});
+
 	it("lists non-deleted expenses for an accessible group ordered by expense date and id descending", async () => {
 		const prisma = {
 			group: {

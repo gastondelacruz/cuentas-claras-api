@@ -1,12 +1,16 @@
 import type { CreateExpenseInput } from "../../../application/use-cases/create-expense.use-case";
+import type { UpdateExpenseInput } from "../../../application/use-cases/update-expense.use-case";
 import type { ExpenseEntity } from "../../../domain/entities/expense-entity";
 import type {
+	DeletedExpenseRef,
 	ExpenseDetail,
 	ExpenseListPage,
 } from "../../../domain/ports/expense.repository";
 import { CreateExpenseRequestDto } from "../dto/create-expense-request.dto";
 import { CreateExpenseResponseDto } from "../dto/create-expense-response.dto";
+import { DeleteExpenseResponseDto } from "../dto/delete-expense-response.dto";
 import { ListExpensesResponseDto } from "../dto/list-expenses-response.dto";
+import { UpdateExpenseRequestDto } from "../dto/update-expense-request.dto";
 
 export class ExpenseMapper {
 	static toInput(
@@ -24,6 +28,24 @@ export class ExpenseMapper {
 			category: dto.category ?? null,
 			notes: dto.notes ?? null,
 			expenseDate: new Date(dto.expenseDate),
+		};
+	}
+
+	static toUpdateInput(
+		expenseId: string,
+		dto: UpdateExpenseRequestDto,
+	): UpdateExpenseInput {
+		return {
+			expenseId,
+			title: dto.title,
+			amount: dto.amount,
+			currency: dto.currency,
+			paidByMemberId: dto.paidByMemberId,
+			participantMemberIds: dto.participantMemberIds,
+			splitType: dto.splitType,
+			category: dto.category,
+			notes: dto.notes,
+			expenseDate: dto.expenseDate ? new Date(dto.expenseDate) : undefined,
 		};
 	}
 
@@ -91,6 +113,15 @@ export class ExpenseMapper {
 			expenseDate: expense.expenseDate.toISOString(),
 			createdAt: expense.createdAt.toISOString(),
 			updatedAt: expense.updatedAt.toISOString(),
+		};
+	}
+
+	static toDeleteResponseDto(
+		deleted: DeletedExpenseRef,
+	): DeleteExpenseResponseDto {
+		return {
+			id: deleted.id,
+			deletedAt: deleted.deletedAt.toISOString(),
 		};
 	}
 }
