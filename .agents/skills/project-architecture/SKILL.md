@@ -58,6 +58,7 @@ Response DTO <- HTTP mapper <- Domain result <- Domain entity <- Prisma record
 Rules:
 
 - The controller owns HTTP concerns: decorators, pipes, request DTOs, response DTOs, and HTTP mappers.
+- **All domain → response DTO conversions MUST go through the HTTP mapper (`GroupMapper`, etc.). Controllers call the mapper; they never build response objects inline.** This applies to every endpoint without exception — including read-only and computed endpoints like balances or settlements.
 - The use case owns orchestration only. It receives domain/application input and returns domain/application output.
 - The repository port is an abstract class in `domain/ports/`.
 - The Prisma adapter maps between Prisma records and domain/application types.
