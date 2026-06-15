@@ -5,6 +5,7 @@ import { GetGroupBalancesUseCase } from "./application/use-cases/get-group-balan
 import { GetGroupSettlementsUseCase } from "./application/use-cases/get-group-settlements.use-case";
 import { GetGroupDetailUseCase } from "./application/use-cases/get-group-detail.use-case";
 import { ListGroupsUseCase } from "./application/use-cases/list-groups.use-case";
+import { RecordSettlementPaymentUseCase } from "./application/use-cases/record-settlement-payment.use-case";
 import { UpdateGroupUseCase } from "./application/use-cases/update-group.use-case";
 import { GroupRepository } from "./domain/ports/group.repository";
 import { GroupsController } from "./infrastructure/http/groups.controller";
@@ -21,6 +22,7 @@ import { PrismaGroupRepository } from "./infrastructure/persistence/prisma-group
     ArchiveGroupUseCase,
     GetGroupBalancesUseCase,
     GetGroupSettlementsUseCase,
+    RecordSettlementPaymentUseCase,
     AtLeastOneFieldConstraint,
     PrismaGroupRepository,
     {

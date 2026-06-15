@@ -15,6 +15,7 @@ import { GetGroupBalancesUseCase } from "../../application/use-cases/get-group-b
 import { GetGroupDetailUseCase } from "../../application/use-cases/get-group-detail.use-case";
 import { GetGroupSettlementsUseCase } from "../../application/use-cases/get-group-settlements.use-case";
 import { ListGroupsUseCase } from "../../application/use-cases/list-groups.use-case";
+import { RecordSettlementPaymentUseCase } from "../../application/use-cases/record-settlement-payment.use-case";
 import { UpdateGroupUseCase } from "../../application/use-cases/update-group.use-case";
 import { CreateGroupRequestDto } from "./dto/create-group-request.dto";
 import { UpdateGroupDto } from "./dto/update-group.dto";
@@ -22,6 +23,8 @@ import { GroupMapper } from "./mappers/group.mapper";
 import { CreateGroupResponseDto } from "./dto/create-group-response.dto";
 import { GroupBalancesResponseDto } from "./dto/group-balances-response.dto";
 import { GroupSettlementsResponseDto } from "./dto/group-settlements-response.dto";
+import { RecordSettlementPaymentRequestDto } from "./dto/record-settlement-payment-request.dto";
+import { RecordSettlementPaymentResponseDto } from "./dto/record-settlement-payment-response.dto";
 
 @ApiTags("groups")
 @Controller("api/v1/groups")
@@ -34,6 +37,7 @@ export class GroupsController {
 		private readonly archiveGroupUseCase: ArchiveGroupUseCase,
 		private readonly getGroupBalancesUseCase: GetGroupBalancesUseCase,
 		private readonly getGroupSettlementsUseCase: GetGroupSettlementsUseCase,
+		private readonly recordSettlementPaymentUseCase: RecordSettlementPaymentUseCase,
 	) {}
 
   @Post()
@@ -76,6 +80,19 @@ export class GroupsController {
 	): Promise<GroupSettlementsResponseDto> {
 		const settlements = await this.getGroupSettlementsUseCase.execute(groupId);
 		return GroupMapper.toSettlementsResponseDto(settlements);
+	}
+
+  @Post(":groupId/settlements")
+  @ApiCreatedResponse()
+	async recordSettlementPayment(
+		@Param("groupId", ParseUUIDPipe) groupId: string,
+		@Body() body: RecordSettlementPaymentRequestDto,
+	): Promise<RecordSettlementPaymentResponseDto> {
+		const result = await this.recordSettlementPaymentUseCase.execute(
+			GroupMapper.toRecordSettlementPaymentInput(groupId, body),
+		);
+
+		return GroupMapper.toRecordSettlementPaymentResponseDto(result);
 	}
 
   @Patch(":groupId")

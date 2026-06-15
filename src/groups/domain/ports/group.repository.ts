@@ -17,6 +17,8 @@ export type GroupLedgerMember = {
 	displayName: string;
 };
 
+export type GroupMemberRef = GroupLedgerMember;
+
 export type GroupLedgerSplit = {
 	memberId: string;
 	netAmount: number;
@@ -34,6 +36,34 @@ export type GroupLedger = {
 	members: GroupLedgerMember[];
 	splits: GroupLedgerSplit[];
 	settlements: GroupLedgerSettlement[];
+};
+
+export type SettlementPaymentRef = {
+	id: string;
+	groupId: string;
+	fromMember: {
+		id: string;
+		displayName: string;
+	};
+	toMember: {
+		id: string;
+		displayName: string;
+	};
+	amount: number;
+	currency: string;
+	paidAt: Date;
+	notes: string | null;
+	createdAt: Date;
+};
+
+export type RecordSettlementPaymentPayload = {
+	groupId: string;
+	fromMemberId: string;
+	toMemberId: string;
+	amount: number;
+	currency: string;
+	paidAt: Date;
+	notes: string | null;
 };
 
 export abstract class GroupRepository {
@@ -61,4 +91,13 @@ export abstract class GroupRepository {
 		groupId: string;
 		userId: string;
 	}): Promise<GroupLedger | null>;
+
+	abstract findActiveGroupMembersForUser(input: {
+		groupId: string;
+		userId: string;
+	}): Promise<GroupMemberRef[] | null>;
+
+	abstract recordSettlementPayment(
+		payload: RecordSettlementPaymentPayload,
+	): Promise<SettlementPaymentRef>;
 }

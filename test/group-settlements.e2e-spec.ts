@@ -127,6 +127,149 @@ describe("Group settlements endpoint (e2e)", () => {
 		return { groupId: group.id, gastonId: gaston.id, anaId: ana.id };
 	}
 
+	async function createEqualExpense(input: {
+		groupId: string;
+		gastonId: string;
+		anaId: string;
+	}): Promise<void> {
+		const expense = await prisma.expense.create({
+			data: {
+				groupId: input.groupId,
+				title: "Hotel",
+				amount: "30000.00",
+				currency: "ARS",
+				paidByMemberId: input.gastonId,
+				splitType: "EQUAL",
+				expenseDate: new Date("2026-06-12T00:00:00.000Z"),
+			},
+		});
+
+		await prisma.expenseSplit.createMany({
+			data: [
+				{
+					expenseId: expense.id,
+					memberId: input.gastonId,
+					owedAmount: "15000.00",
+					paidAmount: "30000.00",
+					netAmount: "15000.00",
+				},
+				{
+					expenseId: expense.id,
+					memberId: input.anaId,
+					owedAmount: "15000.00",
+					paidAmount: "0.00",
+					netAmount: "-15000.00",
+				},
+			],
+		});
+	}
+
+	it("POST /api/v1/groups/:groupId/settlements records a payment and returns updated balances", async () => {
+		const { groupId, gastonId, anaId } = await createGroupWithTwoMembers();
+		await createEqualExpense({ groupId, gastonId, anaId });
+
+		const response = await request(app.getHttpServer())
+			.post(`/api/v1/groups/${groupId}/settlements`)
+			.send({
+				fromMemberId: anaId,
+				toMemberId: gastonId,
+				amount: 15000,
+				currency: "ARS",
+				paidAt: "2026-06-15T12:00:00.000Z",
+				notes: "Paid by transfer",
+			})
+			.expect(201);
+
+		expect(response.body.data.payment).toEqual({
+			id: expect.any(String),
+			groupId,
+			fromMember: {
+				id: anaId,
+				displayName: "Ana",
+			},
+			toMember: {
+				id: gastonId,
+				displayName: "Gaston",
+			},
+			amount: 15000,
+			currency: "ARS",
+			paidAt: "2026-06-15T12:00:00.000Z",
+			notes: "Paid by transfer",
+			createdAt: expect.any(String),
+		});
+		expect(response.body.data.balances).toEqual([
+			{ memberId: anaId, displayName: "Ana", balance: 0, currency: "ARS" },
+			{ memberId: gastonId, displayName: "Gaston", balance: 0, currency: "ARS" },
+		]);
+
+		const persistedPayment = await prisma.settlementPayment.findUnique({
+			where: {
+				id: response.body.data.payment.id,
+			},
+		});
+
+		expect(persistedPayment).toMatchObject({
+			groupId,
+			fromMemberId: anaId,
+			toMemberId: gastonId,
+			currency: "ARS",
+			notes: "Paid by transfer",
+			deletedAt: null,
+		});
+	});
+
+	it("POST /api/v1/groups/:groupId/settlements rejects a member outside the group", async () => {
+		const { groupId, anaId } = await createGroupWithTwoMembers();
+		const outsideGroup = await prisma.group.create({
+			data: {
+				ownerUserId: DEV_USER_ID,
+				name: "Other Trip",
+				currency: "ARS",
+			},
+		});
+		const outsideMember = await prisma.groupMember.create({
+			data: {
+				groupId: outsideGroup.id,
+				userId: null,
+				displayName: "Outside Member",
+			},
+		});
+
+		const response = await request(app.getHttpServer())
+			.post(`/api/v1/groups/${groupId}/settlements`)
+			.send({
+				fromMemberId: anaId,
+				toMemberId: outsideMember.id,
+				amount: 15000,
+				currency: "ARS",
+				paidAt: "2026-06-15T12:00:00.000Z",
+				notes: null,
+			})
+			.expect(400);
+
+		expect(response.body.error).toMatchObject({
+			code: "SETTLEMENT_MEMBER_NOT_IN_GROUP",
+			type: "business",
+			statusCode: 400,
+		});
+	});
+
+	it("POST /api/v1/groups/:groupId/settlements rejects a non-positive amount", async () => {
+		const { groupId, gastonId, anaId } = await createGroupWithTwoMembers();
+
+		await request(app.getHttpServer())
+			.post(`/api/v1/groups/${groupId}/settlements`)
+			.send({
+				fromMemberId: anaId,
+				toMemberId: gastonId,
+				amount: 0,
+				currency: "ARS",
+				paidAt: "2026-06-15T12:00:00.000Z",
+				notes: null,
+			})
+			.expect(400);
+	});
+
 	it("GET /api/v1/groups/:groupId/settlements returns empty when balances are zero", async () => {
 		const { groupId } = await createGroupWithTwoMembers();
 
@@ -139,37 +282,7 @@ describe("Group settlements endpoint (e2e)", () => {
 
 	it("GET /api/v1/groups/:groupId/settlements returns correct suggestions for a group with expenses", async () => {
 		const { groupId, gastonId, anaId } = await createGroupWithTwoMembers();
-
-		const expense = await prisma.expense.create({
-			data: {
-				groupId,
-				title: "Hotel",
-				amount: "30000.00",
-				currency: "ARS",
-				paidByMemberId: gastonId,
-				splitType: "EQUAL",
-				expenseDate: new Date("2026-06-12T00:00:00.000Z"),
-			},
-		});
-
-		await prisma.expenseSplit.createMany({
-			data: [
-				{
-					expenseId: expense.id,
-					memberId: gastonId,
-					owedAmount: "15000.00",
-					paidAmount: "30000.00",
-					netAmount: "15000.00",
-				},
-				{
-					expenseId: expense.id,
-					memberId: anaId,
-					owedAmount: "15000.00",
-					paidAmount: "0.00",
-					netAmount: "-15000.00",
-				},
-			],
-		});
+		await createEqualExpense({ groupId, gastonId, anaId });
 
 		const response = await request(app.getHttpServer())
 			.get(`/api/v1/groups/${groupId}/settlements`)
