@@ -9,9 +9,10 @@ export default defineConfig({
 			module: { type: "es6" },
 		}),
 	],
-		test: {
+	test: {
 		globals: true,
 		environment: "node",
+		allowOnly: !process.env.CI,
 		root: "./",
 		include: ["test/**/*.e2e-spec.ts"],
 		hookTimeout: 60_000,

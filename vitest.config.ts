@@ -16,6 +16,7 @@ export default defineConfig({
 	test: {
 		globals: true,
 		environment: "node",
+		allowOnly: !process.env.CI,
 		root: "./",
 		include: ["src/**/*.spec.ts"],
 		coverage: {

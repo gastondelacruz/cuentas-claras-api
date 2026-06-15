@@ -7,6 +7,7 @@ import {
 	type StartedPostgreSqlContainer,
 } from "@testcontainers/postgresql";
 import { execSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import request from "supertest";
 import { AppModule } from "../src/app.module";
 import { HttpExceptionFilter } from "../src/shared/filters/http-exception.filter";
@@ -119,6 +120,106 @@ describe("Expenses endpoints (e2e)", () => {
 		return { group, members };
 	}
 
+	async function createAccessibleGroupWithMembers(displayNames: string[]) {
+		const group = await prisma.group.create({
+			data: {
+				ownerUserId: DEV_USER_ID,
+				name: "Trip to Bariloche",
+				currency: "ARS",
+			},
+		});
+
+		const devMember = await prisma.groupMember.create({
+			data: {
+				groupId: group.id,
+				userId: DEV_USER_ID,
+				displayName: "Development User",
+				email: "dev@cuentasclaras.local",
+			},
+		});
+
+		const members = [devMember];
+		for (const displayName of displayNames) {
+			const member = await prisma.groupMember.create({
+				data: {
+					groupId: group.id,
+					userId: null,
+					displayName,
+				},
+			});
+			members.push(member);
+		}
+
+		return { group, members };
+	}
+
+	async function createInaccessibleGroupWithMembers(displayNames: string[]) {
+		const otherUser = await prisma.user.create({
+			data: {
+				name: "Other User",
+				email: `other-${randomUUID()}@example.com`,
+			},
+		});
+
+		const group = await prisma.group.create({
+			data: {
+				ownerUserId: otherUser.id,
+				name: "Private Group",
+				currency: "ARS",
+			},
+		});
+
+		const members = [];
+		for (const displayName of displayNames) {
+			const member = await prisma.groupMember.create({
+				data: {
+					groupId: group.id,
+					userId: null,
+					displayName,
+				},
+			});
+			members.push(member);
+		}
+
+		return { group, members };
+	}
+
+	async function createPersistedExpense(input: {
+		groupId: string;
+		paidByMemberId: string;
+		participantMemberIds: string[];
+		title: string;
+		expenseDate: Date;
+		deletedAt?: Date | null;
+	}) {
+		const expense = await prisma.expense.create({
+			data: {
+				groupId: input.groupId,
+				title: input.title,
+				amount: "30000.00",
+				currency: "ARS",
+				paidByMemberId: input.paidByMemberId,
+				splitType: "EQUAL",
+				category: "food",
+				notes: "Pizza night",
+				expenseDate: input.expenseDate,
+				deletedAt: input.deletedAt ?? null,
+			},
+		});
+
+		await prisma.expenseSplit.createMany({
+			data: input.participantMemberIds.map((memberId) => ({
+				expenseId: expense.id,
+				memberId,
+				owedAmount: "15000.00",
+				paidAmount: memberId === input.paidByMemberId ? "30000.00" : "0.00",
+				netAmount: memberId === input.paidByMemberId ? "15000.00" : "-15000.00",
+			})),
+		});
+
+		return expense;
+	}
+
 	it("POST creates an expense with an equal split and persists the splits", async () => {
 		const { group, members } = await createGroupWithMembers(["Gaston", "Ana"]);
 		const [gaston, ana] = members;
@@ -187,6 +288,301 @@ describe("Expenses endpoints (e2e)", () => {
 		expect(persistedExpense.splitType).toBe("EQUAL");
 		expect(Number(persistedExpense.amount)).toBe(30000);
 		expect(persistedExpense.expenseSplits).toHaveLength(2);
+	});
+
+	it("GET /api/v1/groups/:groupId/expenses lists non-deleted expenses ordered by expense date descending", async () => {
+		const { group, members } = await createAccessibleGroupWithMembers([
+			"Gaston",
+			"Ana",
+		]);
+		const [, gaston, ana] = members;
+		const older = await createPersistedExpense({
+			groupId: group.id,
+			paidByMemberId: gaston.id,
+			participantMemberIds: [gaston.id, ana.id],
+			title: "Lunch",
+			expenseDate: new Date("2026-06-12T20:00:00.000Z"),
+		});
+		const newer = await createPersistedExpense({
+			groupId: group.id,
+			paidByMemberId: gaston.id,
+			participantMemberIds: [gaston.id, ana.id],
+			title: "Dinner",
+			expenseDate: new Date("2026-06-13T20:00:00.000Z"),
+		});
+		await createPersistedExpense({
+			groupId: group.id,
+			paidByMemberId: gaston.id,
+			participantMemberIds: [gaston.id, ana.id],
+			title: "Deleted",
+			expenseDate: new Date("2026-06-14T20:00:00.000Z"),
+			deletedAt: new Date("2026-06-15T20:00:00.000Z"),
+		});
+
+		const response = await request(app.getHttpServer())
+			.get(`/api/v1/groups/${group.id}/expenses`)
+			.expect(200);
+
+		expect(response.body).toEqual({
+			data: {
+				expenses: [
+					{
+						id: newer.id,
+						groupId: group.id,
+						title: "Dinner",
+						amount: 30000,
+						currency: "ARS",
+						paidBy: { id: gaston.id, displayName: "Gaston" },
+						participantsCount: 2,
+						category: "food",
+						expenseDate: "2026-06-13T20:00:00.000Z",
+						createdAt: expect.any(String),
+					},
+					{
+						id: older.id,
+						groupId: group.id,
+						title: "Lunch",
+						amount: 30000,
+						currency: "ARS",
+						paidBy: { id: gaston.id, displayName: "Gaston" },
+						participantsCount: 2,
+						category: "food",
+						expenseDate: "2026-06-12T20:00:00.000Z",
+						createdAt: expect.any(String),
+					},
+				],
+				nextCursor: null,
+			},
+		});
+	});
+
+	it("GET /api/v1/groups/:groupId/expenses returns 404 for a group inaccessible to the dev user", async () => {
+		const { group, members } = await createInaccessibleGroupWithMembers([
+			"Gaston",
+			"Ana",
+		]);
+		const [gaston, ana] = members;
+		await createPersistedExpense({
+			groupId: group.id,
+			paidByMemberId: gaston.id,
+			participantMemberIds: [gaston.id, ana.id],
+			title: "Private Dinner",
+			expenseDate: new Date("2026-06-13T20:00:00.000Z"),
+		});
+
+		const response = await request(app.getHttpServer())
+			.get(`/api/v1/groups/${group.id}/expenses`)
+			.expect(404);
+
+		expect(response.body.error).toMatchObject({
+			code: "GROUP_NOT_FOUND",
+			type: "business",
+			statusCode: 404,
+		});
+	});
+
+	it("GET /api/v1/groups/:groupId/expenses supports deterministic cursor pagination for equal expense dates", async () => {
+		const { group, members } = await createAccessibleGroupWithMembers([
+			"Gaston",
+			"Ana",
+		]);
+		const [, gaston, ana] = members;
+		const sharedExpenseDate = new Date("2026-06-12T20:00:00.000Z");
+		const expenses: Array<{ id: string; expenseDate: Date }> = [];
+
+		expenses.push(
+			await createPersistedExpense({
+				groupId: group.id,
+				paidByMemberId: gaston.id,
+				participantMemberIds: [gaston.id, ana.id],
+				title: "Breakfast",
+				expenseDate: new Date("2026-06-11T20:00:00.000Z"),
+			}),
+		);
+		expenses.push(
+			await createPersistedExpense({
+				groupId: group.id,
+				paidByMemberId: gaston.id,
+				participantMemberIds: [gaston.id, ana.id],
+				title: "Lunch",
+				expenseDate: sharedExpenseDate,
+			}),
+		);
+		expenses.push(
+			await createPersistedExpense({
+				groupId: group.id,
+				paidByMemberId: gaston.id,
+				participantMemberIds: [gaston.id, ana.id],
+				title: "Snack",
+				expenseDate: sharedExpenseDate,
+			}),
+		);
+		expenses.push(
+			await createPersistedExpense({
+				groupId: group.id,
+				paidByMemberId: gaston.id,
+				participantMemberIds: [gaston.id, ana.id],
+				title: "Dinner",
+				expenseDate: new Date("2026-06-13T20:00:00.000Z"),
+			}),
+		);
+
+		const expectedIds = expenses
+			.toSorted((left, right) => {
+				const dateComparison =
+					right.expenseDate.getTime() - left.expenseDate.getTime();
+
+				if (dateComparison !== 0) {
+					return dateComparison;
+				}
+
+				return left.id < right.id ? 1 : -1;
+			})
+			.map((expense) => expense.id);
+
+		const firstPage = await request(app.getHttpServer())
+			.get(`/api/v1/groups/${group.id}/expenses?limit=1`)
+			.expect(200);
+
+		expect(firstPage.body.data.expenses).toEqual([
+			expect.objectContaining({ id: expectedIds[0] }),
+		]);
+		expect(firstPage.body.data.nextCursor).toBe(expectedIds[1]);
+
+		const secondPage = await request(app.getHttpServer())
+			.get(
+				`/api/v1/groups/${group.id}/expenses?limit=1&cursor=${firstPage.body.data.nextCursor}`,
+			)
+			.expect(200);
+
+		expect(secondPage.body.data.expenses).toEqual([
+			expect.objectContaining({ id: expectedIds[1] }),
+		]);
+		expect(secondPage.body.data.nextCursor).toBe(expectedIds[2]);
+
+		const thirdPage = await request(app.getHttpServer())
+			.get(
+				`/api/v1/groups/${group.id}/expenses?limit=2&cursor=${secondPage.body.data.nextCursor}`,
+			)
+			.expect(200);
+
+		const pagedIds = [
+			...firstPage.body.data.expenses,
+			...secondPage.body.data.expenses,
+			...thirdPage.body.data.expenses,
+		].map((expense: { id: string }) => expense.id);
+
+		expect(
+			thirdPage.body.data.expenses.map(
+				(expense: { id: string }) => expense.id,
+			),
+		).toEqual(expectedIds.slice(2));
+		expect(thirdPage.body.data.nextCursor).toBeNull();
+		expect(pagedIds).toEqual(expectedIds);
+		expect(new Set(pagedIds).size).toBe(expectedIds.length);
+	});
+
+	it("GET /api/v1/expenses/:expenseId returns expense detail with participants", async () => {
+		const { group, members } = await createAccessibleGroupWithMembers([
+			"Gaston",
+			"Ana",
+		]);
+		const [, gaston, ana] = members;
+		const expense = await createPersistedExpense({
+			groupId: group.id,
+			paidByMemberId: gaston.id,
+			participantMemberIds: [gaston.id, ana.id],
+			title: "Dinner",
+			expenseDate: new Date("2026-06-13T20:00:00.000Z"),
+		});
+
+		const response = await request(app.getHttpServer())
+			.get(`/api/v1/expenses/${expense.id}`)
+			.expect(200);
+
+		expect(response.body).toEqual({
+			data: {
+				id: expense.id,
+				groupId: group.id,
+				title: "Dinner",
+				amount: 30000,
+				currency: "ARS",
+				paidBy: { id: gaston.id, displayName: "Gaston" },
+				participants: [
+					{
+						memberId: gaston.id,
+						displayName: "Gaston",
+						owedAmount: 15000,
+						paidAmount: 30000,
+						netAmount: 15000,
+					},
+					{
+						memberId: ana.id,
+						displayName: "Ana",
+						owedAmount: 15000,
+						paidAmount: 0,
+						netAmount: -15000,
+					},
+				],
+				splitType: "equal",
+				category: "food",
+				notes: "Pizza night",
+				expenseDate: "2026-06-13T20:00:00.000Z",
+				createdAt: expect.any(String),
+				updatedAt: expect.any(String),
+			},
+		});
+	});
+
+	it("GET /api/v1/expenses/:expenseId returns 404 for an expense in a group inaccessible to the dev user", async () => {
+		const { group, members } = await createInaccessibleGroupWithMembers([
+			"Gaston",
+			"Ana",
+		]);
+		const [gaston, ana] = members;
+		const expense = await createPersistedExpense({
+			groupId: group.id,
+			paidByMemberId: gaston.id,
+			participantMemberIds: [gaston.id, ana.id],
+			title: "Private Dinner",
+			expenseDate: new Date("2026-06-13T20:00:00.000Z"),
+		});
+
+		const response = await request(app.getHttpServer())
+			.get(`/api/v1/expenses/${expense.id}`)
+			.expect(404);
+
+		expect(response.body.error).toMatchObject({
+			code: "EXPENSE_NOT_FOUND",
+			type: "business",
+			statusCode: 404,
+		});
+	});
+
+	it("GET /api/v1/expenses/:expenseId returns 404 for a deleted expense", async () => {
+		const { group, members } = await createAccessibleGroupWithMembers([
+			"Gaston",
+			"Ana",
+		]);
+		const [, gaston, ana] = members;
+		const expense = await createPersistedExpense({
+			groupId: group.id,
+			paidByMemberId: gaston.id,
+			participantMemberIds: [gaston.id, ana.id],
+			title: "Deleted Dinner",
+			expenseDate: new Date("2026-06-13T20:00:00.000Z"),
+			deletedAt: new Date("2026-06-14T20:00:00.000Z"),
+		});
+
+		const response = await request(app.getHttpServer())
+			.get(`/api/v1/expenses/${expense.id}`)
+			.expect(404);
+
+		expect(response.body.error).toMatchObject({
+			code: "EXPENSE_NOT_FOUND",
+			type: "business",
+			statusCode: 404,
+		});
 	});
 
 	it("POST distributes remainder cents so the split stays exact", async () => {
