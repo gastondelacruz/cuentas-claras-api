@@ -115,4 +115,92 @@ describe("ExpenseMapper", () => {
 			updatedAt: "2026-06-13T21:00:00.000Z",
 		});
 	});
+
+	it("maps a list page into the list response dto", () => {
+		const response = ExpenseMapper.toListResponseDto({
+			expenses: [
+				{
+					id: "expense-1",
+					groupId: "group-1",
+					title: "Dinner",
+					amount: 30000,
+					currency: "ARS",
+					paidBy: { id: "member-a", displayName: "Gaston" },
+					participantsCount: 2,
+					category: "food",
+					expenseDate: new Date("2026-06-13T20:00:00.000Z"),
+					createdAt: new Date("2026-06-13T21:00:00.000Z"),
+				},
+			],
+			nextCursor: null,
+		});
+
+		expect(response).toEqual({
+			expenses: [
+				{
+					id: "expense-1",
+					groupId: "group-1",
+					title: "Dinner",
+					amount: 30000,
+					currency: "ARS",
+					paidBy: { id: "member-a", displayName: "Gaston" },
+					participantsCount: 2,
+					category: "food",
+					expenseDate: "2026-06-13T20:00:00.000Z",
+					createdAt: "2026-06-13T21:00:00.000Z",
+				},
+			],
+			nextCursor: null,
+		});
+	});
+
+	it("maps an expense detail projection into the detail response dto", () => {
+		const response = ExpenseMapper.toDetailResponseDto({
+			id: "expense-1",
+			groupId: "group-1",
+			title: "Dinner",
+			amount: 30000,
+			currency: "ARS",
+			paidBy: { id: "member-a", displayName: "Gaston" },
+			participants: [
+				{
+					memberId: "member-a",
+					displayName: "Gaston",
+					owedAmount: 15000,
+					paidAmount: 30000,
+					netAmount: 15000,
+				},
+			],
+			splitType: "equal",
+			category: "food",
+			notes: "Pizza night",
+			expenseDate: new Date("2026-06-13T20:00:00.000Z"),
+			createdAt: new Date("2026-06-13T21:00:00.000Z"),
+			updatedAt: new Date("2026-06-13T21:30:00.000Z"),
+		});
+
+		expect(response).toEqual({
+			id: "expense-1",
+			groupId: "group-1",
+			title: "Dinner",
+			amount: 30000,
+			currency: "ARS",
+			paidBy: { id: "member-a", displayName: "Gaston" },
+			participants: [
+				{
+					memberId: "member-a",
+					displayName: "Gaston",
+					owedAmount: 15000,
+					paidAmount: 30000,
+					netAmount: 15000,
+				},
+			],
+			splitType: "equal",
+			category: "food",
+			notes: "Pizza night",
+			expenseDate: "2026-06-13T20:00:00.000Z",
+			createdAt: "2026-06-13T21:00:00.000Z",
+			updatedAt: "2026-06-13T21:30:00.000Z",
+		});
+	});
 });
