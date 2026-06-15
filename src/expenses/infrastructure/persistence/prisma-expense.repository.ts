@@ -8,6 +8,7 @@ import {
 	type ExpenseDetail,
 	type ExpenseListPage,
 	type GroupMemberRef,
+	type UpdateExpenseOptions,
 } from "../../domain/ports/expense.repository";
 import type { SplitType } from "../../domain/value-objects/split-type.vo";
 
@@ -102,6 +103,61 @@ export class PrismaExpenseRepository extends ExpenseRepository {
 					updatedAt: created.updatedAt,
 					splits: expense.splits,
 				});
+			}),
+		);
+	}
+
+	async update(
+		expenseId: string,
+		expense: ExpenseEntity,
+		options?: UpdateExpenseOptions,
+	): Promise<ExpenseDetail> {
+		return this.runDatabaseOperation("EXPENSE_UPDATE_DATABASE_ERROR", () =>
+			this.prisma.$transaction(async (tx) => {
+				const replaceSplits = options?.replaceSplits ?? true;
+
+				await tx.expense.update({
+					where: {
+						id: expenseId,
+					},
+					data: {
+						title: expense.title,
+						amount: expense.amountValue.toFixed(2),
+						currency: expense.currency,
+						paidByMemberId: expense.paidByMemberId,
+						splitType: toPrismaSplitType(expense.splitType),
+						category: expense.category,
+						notes: expense.notes,
+						expenseDate: expense.expenseDate,
+					},
+				});
+
+				if (replaceSplits) {
+					await tx.expenseSplit.deleteMany({
+						where: {
+							expenseId,
+						},
+					});
+
+					await tx.expenseSplit.createMany({
+						data: expense.splits.map((split) => ({
+							expenseId,
+							memberId: split.memberId,
+							owedAmount: split.owedAmount.toFixed(2),
+							paidAmount: split.paidAmount.toFixed(2),
+							netAmount: split.netAmount.toFixed(2),
+						})),
+					});
+				}
+
+				const updated = await tx.expense.findUniqueOrThrow({
+					where: {
+						id: expenseId,
+					},
+					select: expenseDetailSelect,
+				});
+
+				return mapExpenseDetail(updated);
 			}),
 		);
 	}
@@ -207,70 +263,49 @@ export class PrismaExpenseRepository extends ExpenseRepository {
 						},
 					},
 				},
-				select: {
-					id: true,
-					groupId: true,
-					title: true,
-					amount: true,
-					currency: true,
-					paidByMember: {
-						select: {
-							id: true,
-							displayName: true,
-						},
-					},
-					expenseSplits: {
-						select: {
-							memberId: true,
-							owedAmount: true,
-							paidAmount: true,
-							netAmount: true,
-							member: {
-								select: {
-									displayName: true,
-								},
-							},
-						},
-						orderBy: {
-							createdAt: "asc",
-						},
-					},
-					splitType: true,
-					category: true,
-					notes: true,
-					expenseDate: true,
-					createdAt: true,
-					updatedAt: true,
-				},
+				select: expenseDetailSelect,
 			});
 
 			if (!expense) {
 				return null;
 			}
 
-			return {
-				id: expense.id,
-				groupId: expense.groupId,
-				title: expense.title,
-				amount: decimalToNumber(expense.amount),
-				currency: expense.currency,
-				paidBy: {
-					id: expense.paidByMember.id,
-					displayName: expense.paidByMember.displayName,
+			return mapExpenseDetail(expense);
+		});
+	}
+
+	async softDeleteForUser(input: {
+		expenseId: string;
+		userId: string;
+	}): Promise<{ id: string; deletedAt: Date } | null> {
+		return this.runDatabaseOperation("EXPENSE_DELETE_DATABASE_ERROR", async () => {
+			const deletedAt = new Date();
+			const result = await this.prisma.expense.updateMany({
+				where: {
+					id: input.expenseId,
+					deletedAt: null,
+					group: {
+						archivedAt: null,
+						groupMembers: {
+							some: {
+								userId: input.userId,
+								removedAt: null,
+							},
+						},
+					},
 				},
-				participants: expense.expenseSplits.map((split) => ({
-					memberId: split.memberId,
-					displayName: split.member.displayName,
-					owedAmount: decimalToNumber(split.owedAmount),
-					paidAmount: decimalToNumber(split.paidAmount),
-					netAmount: decimalToNumber(split.netAmount),
-				})),
-				splitType: fromPrismaSplitType(expense.splitType),
-				category: expense.category,
-				notes: expense.notes,
-				expenseDate: expense.expenseDate,
-				createdAt: expense.createdAt,
-				updatedAt: expense.updatedAt,
+				data: {
+					deletedAt,
+				},
+			});
+
+			if (result.count === 0) {
+				return null;
+			}
+
+			return {
+				id: input.expenseId,
+				deletedAt,
 			};
 		});
 	}
@@ -289,6 +324,96 @@ export class PrismaExpenseRepository extends ExpenseRepository {
 			throw new DatabaseException(code);
 		}
 	}
+}
+
+const expenseDetailSelect = {
+	id: true,
+	groupId: true,
+	title: true,
+	amount: true,
+	currency: true,
+	paidByMember: {
+		select: {
+			id: true,
+			displayName: true,
+		},
+	},
+	expenseSplits: {
+		select: {
+			memberId: true,
+			owedAmount: true,
+			paidAmount: true,
+			netAmount: true,
+			member: {
+				select: {
+					displayName: true,
+				},
+			},
+		},
+		orderBy: {
+			createdAt: "asc",
+		},
+	},
+	splitType: true,
+	category: true,
+	notes: true,
+	expenseDate: true,
+	createdAt: true,
+	updatedAt: true,
+} as const;
+
+type ExpenseDetailRecord = {
+	id: string;
+	groupId: string;
+	title: string;
+	amount: unknown;
+	currency: string;
+	paidByMember: {
+		id: string;
+		displayName: string;
+	};
+	expenseSplits: Array<{
+		memberId: string;
+		owedAmount: unknown;
+		paidAmount: unknown;
+		netAmount: unknown;
+		member: {
+			displayName: string;
+		};
+	}>;
+	splitType: PrismaSplitType;
+	category: string | null;
+	notes: string | null;
+	expenseDate: Date;
+	createdAt: Date;
+	updatedAt: Date;
+};
+
+function mapExpenseDetail(expense: ExpenseDetailRecord): ExpenseDetail {
+	return {
+		id: expense.id,
+		groupId: expense.groupId,
+		title: expense.title,
+		amount: decimalToNumber(expense.amount),
+		currency: expense.currency,
+		paidBy: {
+			id: expense.paidByMember.id,
+			displayName: expense.paidByMember.displayName,
+		},
+		participants: expense.expenseSplits.map((split) => ({
+			memberId: split.memberId,
+			displayName: split.member.displayName,
+			owedAmount: decimalToNumber(split.owedAmount),
+			paidAmount: decimalToNumber(split.paidAmount),
+			netAmount: decimalToNumber(split.netAmount),
+		})),
+		splitType: fromPrismaSplitType(expense.splitType),
+		category: expense.category,
+		notes: expense.notes,
+		expenseDate: expense.expenseDate,
+		createdAt: expense.createdAt,
+		updatedAt: expense.updatedAt,
+	};
 }
 
 function decimalToNumber(value: unknown): number {

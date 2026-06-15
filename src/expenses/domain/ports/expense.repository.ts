@@ -52,12 +52,27 @@ export type ExpenseDetail = {
 	updatedAt: Date;
 };
 
+export type DeletedExpenseRef = {
+	id: string;
+	deletedAt: Date;
+};
+
+export type UpdateExpenseOptions = {
+	replaceSplits?: boolean;
+};
+
 export abstract class ExpenseRepository {
 	abstract findActiveGroupMembers(
 		groupId: string,
 	): Promise<GroupMemberRef[] | null>;
 
 	abstract create(expense: ExpenseEntity): Promise<ExpenseEntity>;
+
+	abstract update(
+		expenseId: string,
+		expense: ExpenseEntity,
+		options?: UpdateExpenseOptions,
+	): Promise<ExpenseDetail>;
 
 	abstract listByGroupForUser(input: {
 		groupId: string;
@@ -70,4 +85,9 @@ export abstract class ExpenseRepository {
 		expenseId: string;
 		userId: string;
 	}): Promise<ExpenseDetail | null>;
+
+	abstract softDeleteForUser(input: {
+		expenseId: string;
+		userId: string;
+	}): Promise<DeletedExpenseRef | null>;
 }
