@@ -1,10 +1,14 @@
 import { GroupEntity } from "../../../domain/entities/group-entity";
 import { GroupMemberEntity } from "../../../domain/entities/group-member-entity";
 import type { UpdateGroupPayload } from "../../../domain/ports/group.repository";
+import { type MemberBalance } from "../../../domain/services/balance-calculator";
+import { type SettlementSuggestion } from "../../../domain/services/settlement-calculator";
 import { Currency } from "../../../domain/value-objects/currency.vo";
 import { GroupName } from "../../../domain/value-objects/group-name.vo";
 import { CreateGroupRequestDto } from "../dto/create-group-request.dto";
 import { CreateGroupResponseDto } from "../dto/create-group-response.dto";
+import { GroupBalancesResponseDto } from "../dto/group-balances-response.dto";
+import { GroupSettlementsResponseDto } from "../dto/group-settlements-response.dto";
 import { UpdateGroupDto } from "../dto/update-group.dto";
 
 const DEV_USER_ID = "00000000-0000-0000-0000-000000000001";
@@ -86,6 +90,30 @@ export class GroupMapper {
 			totalAmount: 0,
 			currentUserBalance: 0,
 			updatedAt: group.updatedAt?.toISOString(),
+		};
+	}
+
+	static toBalancesResponseDto(balances: MemberBalance[]): GroupBalancesResponseDto {
+		return {
+			balances: balances.map((b) => ({
+				memberId: b.memberId,
+				displayName: b.displayName,
+				balance: b.balance,
+				currency: b.currency,
+			})),
+		};
+	}
+
+	static toSettlementsResponseDto(settlements: SettlementSuggestion[]): GroupSettlementsResponseDto {
+		return {
+			settlements: settlements.map((s) => ({
+				fromMemberId: s.fromMemberId,
+				fromMemberName: s.fromMemberName,
+				toMemberId: s.toMemberId,
+				toMemberName: s.toMemberName,
+				amount: s.amount,
+				currency: s.currency,
+			})),
 		};
 	}
 

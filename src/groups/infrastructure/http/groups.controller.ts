@@ -13,6 +13,7 @@ import { ArchiveGroupUseCase } from "../../application/use-cases/archive-group.u
 import { CreateGroupUseCase } from "../../application/use-cases/create-group.use-case";
 import { GetGroupBalancesUseCase } from "../../application/use-cases/get-group-balances.use-case";
 import { GetGroupDetailUseCase } from "../../application/use-cases/get-group-detail.use-case";
+import { GetGroupSettlementsUseCase } from "../../application/use-cases/get-group-settlements.use-case";
 import { ListGroupsUseCase } from "../../application/use-cases/list-groups.use-case";
 import { UpdateGroupUseCase } from "../../application/use-cases/update-group.use-case";
 import { CreateGroupRequestDto } from "./dto/create-group-request.dto";
@@ -20,6 +21,7 @@ import { UpdateGroupDto } from "./dto/update-group.dto";
 import { GroupMapper } from "./mappers/group.mapper";
 import { CreateGroupResponseDto } from "./dto/create-group-response.dto";
 import { GroupBalancesResponseDto } from "./dto/group-balances-response.dto";
+import { GroupSettlementsResponseDto } from "./dto/group-settlements-response.dto";
 
 @ApiTags("groups")
 @Controller("api/v1/groups")
@@ -31,6 +33,7 @@ export class GroupsController {
 		private readonly updateGroupUseCase: UpdateGroupUseCase,
 		private readonly archiveGroupUseCase: ArchiveGroupUseCase,
 		private readonly getGroupBalancesUseCase: GetGroupBalancesUseCase,
+		private readonly getGroupSettlementsUseCase: GetGroupSettlementsUseCase,
 	) {}
 
   @Post()
@@ -63,14 +66,16 @@ export class GroupsController {
 		@Param("groupId", ParseUUIDPipe) groupId: string,
 	): Promise<GroupBalancesResponseDto> {
 		const balances = await this.getGroupBalancesUseCase.execute(groupId);
-		return {
-			balances: balances.map((balance) => ({
-				memberId: balance.memberId,
-				displayName: balance.displayName,
-				balance: balance.balance,
-				currency: balance.currency,
-			})),
-		};
+		return GroupMapper.toBalancesResponseDto(balances);
+	}
+
+  @Get(":groupId/settlements")
+  @ApiOkResponse()
+	async getSettlements(
+		@Param("groupId", ParseUUIDPipe) groupId: string,
+	): Promise<GroupSettlementsResponseDto> {
+		const settlements = await this.getGroupSettlementsUseCase.execute(groupId);
+		return GroupMapper.toSettlementsResponseDto(settlements);
 	}
 
   @Patch(":groupId")
