@@ -11,6 +11,7 @@ import {
 import { ApiCreatedResponse, ApiOkResponse, ApiTags } from "@nestjs/swagger";
 import { ArchiveGroupUseCase } from "../../application/use-cases/archive-group.use-case";
 import { CreateGroupUseCase } from "../../application/use-cases/create-group.use-case";
+import { GetGroupBalancesUseCase } from "../../application/use-cases/get-group-balances.use-case";
 import { GetGroupDetailUseCase } from "../../application/use-cases/get-group-detail.use-case";
 import { ListGroupsUseCase } from "../../application/use-cases/list-groups.use-case";
 import { UpdateGroupUseCase } from "../../application/use-cases/update-group.use-case";
@@ -18,6 +19,7 @@ import { CreateGroupRequestDto } from "./dto/create-group-request.dto";
 import { UpdateGroupDto } from "./dto/update-group.dto";
 import { GroupMapper } from "./mappers/group.mapper";
 import { CreateGroupResponseDto } from "./dto/create-group-response.dto";
+import { GroupBalancesResponseDto } from "./dto/group-balances-response.dto";
 
 @ApiTags("groups")
 @Controller("api/v1/groups")
@@ -28,6 +30,7 @@ export class GroupsController {
 		private readonly getGroupDetailUseCase: GetGroupDetailUseCase,
 		private readonly updateGroupUseCase: UpdateGroupUseCase,
 		private readonly archiveGroupUseCase: ArchiveGroupUseCase,
+		private readonly getGroupBalancesUseCase: GetGroupBalancesUseCase,
 	) {}
 
   @Post()
@@ -52,6 +55,22 @@ export class GroupsController {
 	): Promise<CreateGroupResponseDto> {
 		const group = await this.getGroupDetailUseCase.execute(groupId);
 		return GroupMapper.toDetailResponseDto(group);
+	}
+
+  @Get(":groupId/balances")
+  @ApiOkResponse()
+	async getBalances(
+		@Param("groupId", ParseUUIDPipe) groupId: string,
+	): Promise<GroupBalancesResponseDto> {
+		const balances = await this.getGroupBalancesUseCase.execute(groupId);
+		return {
+			balances: balances.map((balance) => ({
+				memberId: balance.memberId,
+				displayName: balance.displayName,
+				balance: balance.balance,
+				currency: balance.currency,
+			})),
+		};
 	}
 
   @Patch(":groupId")

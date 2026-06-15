@@ -1,6 +1,9 @@
 import { Injectable } from "@nestjs/common";
 import { GroupType as PrismaGroupType, type Prisma } from "@prisma/client";
-import type { UpdateGroupPayload } from "../../domain/ports/group.repository";
+import type {
+	GroupLedger,
+	UpdateGroupPayload,
+} from "../../domain/ports/group.repository";
 import { GroupEntity } from "../../domain/entities/group-entity";
 import { GroupMemberEntity } from "../../domain/entities/group-member-entity";
 import { Currency } from "../../domain/value-objects/currency.vo";
@@ -295,6 +298,95 @@ export class PrismaGroupRepository extends GroupRepository {
 
 			return toDomainGroup(archivedGroup);
 		});
+	}
+
+	async findGroupLedgerForUser(input: {
+		groupId: string;
+		userId: string;
+	}): Promise<GroupLedger | null> {
+		return this.runDatabaseOperation(
+			"GROUP_BALANCES_DATABASE_ERROR",
+			async () => {
+				const group = await this.prisma.group.findFirst({
+					where: {
+						id: input.groupId,
+						archivedAt: null,
+						groupMembers: {
+							some: {
+								userId: input.userId,
+								removedAt: null,
+							},
+						},
+					},
+					select: {
+						id: true,
+					},
+				});
+
+				if (!group) {
+					return null;
+				}
+
+				const [members, splits, settlements] = await Promise.all([
+					this.prisma.groupMember.findMany({
+						where: {
+							groupId: input.groupId,
+						},
+						select: {
+							id: true,
+							displayName: true,
+						},
+					}),
+					this.prisma.expenseSplit.findMany({
+						where: {
+							expense: {
+								groupId: input.groupId,
+								deletedAt: null,
+							},
+						},
+						select: {
+							memberId: true,
+							netAmount: true,
+							expense: {
+								select: {
+									currency: true,
+								},
+							},
+						},
+					}),
+					this.prisma.settlementPayment.findMany({
+						where: {
+							groupId: input.groupId,
+							deletedAt: null,
+						},
+						select: {
+							fromMemberId: true,
+							toMemberId: true,
+							amount: true,
+							currency: true,
+						},
+					}),
+				]);
+
+				return {
+					members: members.map((member) => ({
+						memberId: member.id,
+						displayName: member.displayName,
+					})),
+					splits: splits.map((split) => ({
+						memberId: split.memberId,
+						netAmount: decimalToNumber(split.netAmount),
+						currency: split.expense.currency,
+					})),
+					settlements: settlements.map((settlement) => ({
+						fromMemberId: settlement.fromMemberId,
+						toMemberId: settlement.toMemberId,
+						amount: decimalToNumber(settlement.amount),
+						currency: settlement.currency,
+					})),
+				};
+			},
+		);
 	}
 
 	private async runDatabaseOperation<T>(
@@ -599,6 +691,14 @@ function fromPrismaGroupType(groupType: PrismaGroupType): GroupType {
   };
 
 	return mapping[groupType];
+}
+
+function decimalToNumber(value: unknown): number {
+	if (typeof value === "object" && value !== null && "toNumber" in value) {
+		return (value as { toNumber: () => number }).toNumber();
+	}
+
+	return Number(value);
 }
 
 function normalizeGroupName(name: GroupName | string): string {
