@@ -25,16 +25,34 @@ enum GroupType {
 }
 
 model User {
-  id           String        @id @default(uuid()) @db.Uuid
-  name         String
-  email        String        @unique
-  avatarUrl    String?       @map("avatar_url")
-  createdAt    DateTime      @default(now()) @map("created_at")
-  updatedAt    DateTime      @updatedAt @map("updated_at")
-  ownedGroups  Group[]       @relation("GroupOwner")
-  groupMembers GroupMember[]
+  id            String         @id @default(uuid()) @db.Uuid
+  name          String
+  email         String         @unique
+  avatarUrl     String?        @map("avatar_url")
+  passwordHash  String?        @map("password_hash")
+  googleId      String?        @unique @map("google_id")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+  ownedGroups   Group[]        @relation("GroupOwner")
+  groupMembers  GroupMember[]
+  refreshTokens RefreshToken[]
 
   @@map("users")
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
 }
 
 model Group {

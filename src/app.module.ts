@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
+import { AuthModule } from "./auth/auth.module";
 import appConfig from "./config/app.config";
 import { envValidationSchema } from "./config/env.validation";
 import { ExpensesModule } from "./expenses/expenses.module";
@@ -18,6 +19,7 @@ import { PrismaModule } from "./prisma/prisma.module";
 				abortEarly: false,
 			},
 		}),
+		AuthModule,
 		GroupsModule,
 		ExpensesModule,
 		MeModule,

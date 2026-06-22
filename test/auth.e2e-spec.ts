@@ -1,0 +1,175 @@
+import { ValidationPipe, type INestApplication } from "@nestjs/common";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { PrismaClient } from "@prisma/client";
+import { Test, type TestingModule } from "@nestjs/testing";
+import {
+	PostgreSqlContainer,
+	type StartedPostgreSqlContainer,
+} from "@testcontainers/postgresql";
+import * as argon2 from "argon2";
+import { execSync } from "node:child_process";
+import request from "supertest";
+import { AppModule } from "../src/app.module";
+import { HttpExceptionFilter } from "../src/shared/filters/http-exception.filter";
+import { ResponseInterceptor } from "../src/shared/interceptors/response.interceptor";
+
+describe("Auth registration endpoint (e2e)", () => {
+	let app: INestApplication;
+	let postgresContainer: StartedPostgreSqlContainer;
+	let prisma: PrismaClient;
+
+	beforeAll(async () => {
+		postgresContainer = await new PostgreSqlContainer("postgres:17-alpine")
+			.withDatabase("cuentas_claras_test")
+			.withUsername("postgres")
+			.withPassword("postgres")
+			.start();
+
+		process.env.DATABASE_URL = postgresContainer.getConnectionUri();
+		process.env.NODE_ENV = "test";
+		process.env.JWT_ACCESS_SECRET = "test-access-secret-with-at-least-32-chars";
+		process.env.JWT_REFRESH_SECRET = "test-refresh-secret-with-at-least-32-chars";
+		process.env.JWT_ACCESS_TTL = "15m";
+		process.env.JWT_REFRESH_TTL = "30d";
+
+		execSync("npx prisma db push", {
+			cwd: process.cwd(),
+			env: process.env,
+			stdio: "inherit",
+		});
+
+		const adapter = new PrismaPg({
+			connectionString: process.env.DATABASE_URL,
+		});
+		prisma = new PrismaClient({ adapter });
+		await prisma.$connect();
+
+		const moduleFixture: TestingModule = await Test.createTestingModule({
+			imports: [AppModule],
+		}).compile();
+
+		app = moduleFixture.createNestApplication();
+		app.useGlobalPipes(
+			new ValidationPipe({
+				whitelist: true,
+				transform: true,
+			}),
+		);
+		app.useGlobalFilters(new HttpExceptionFilter());
+		app.useGlobalInterceptors(new ResponseInterceptor());
+
+		await app.init();
+	});
+
+	afterAll(async () => {
+		if (app) {
+			await app.close();
+		}
+
+		if (prisma) {
+			await prisma.$disconnect();
+		}
+
+		if (postgresContainer) {
+			await postgresContainer.stop();
+		}
+	});
+
+	beforeEach(async () => {
+		await prisma.refreshToken.deleteMany();
+		await prisma.user.deleteMany();
+	});
+
+	it("POST /api/v1/auth/register creates a user, returns tokens, and stores only hashes", async () => {
+		const response = await request(app.getHttpServer())
+			.post("/api/v1/auth/register")
+			.send({
+				email: "new@example.com",
+				password: "SecureP4ss!",
+				name: "Jane",
+			})
+			.expect(201);
+
+		expect(response.body).toEqual({
+			data: {
+				accessToken: expect.any(String),
+				refreshToken: expect.any(String),
+				user: {
+					id: expect.any(String),
+					name: "Jane",
+					email: "new@example.com",
+				},
+			},
+		});
+		expect(response.body.data.user.passwordHash).toBeUndefined();
+
+		const user = await prisma.user.findUniqueOrThrow({
+			where: {
+				email: "new@example.com",
+			},
+		});
+		expect(user.passwordHash).not.toBe("SecureP4ss!");
+		await expect(argon2.verify(user.passwordHash!, "SecureP4ss!")).resolves.toBe(
+			true,
+		);
+
+		const persistedRefreshToken = await prisma.refreshToken.findFirstOrThrow({
+			where: {
+				userId: user.id,
+			},
+		});
+		expect(persistedRefreshToken.tokenHash).not.toBe(
+			response.body.data.refreshToken,
+		);
+		await expect(
+			argon2.verify(
+				persistedRefreshToken.tokenHash,
+				response.body.data.refreshToken,
+			),
+		).resolves.toBe(true);
+		expect(persistedRefreshToken.expiresAt.getTime()).toBeGreaterThan(Date.now());
+	});
+
+	it("POST /api/v1/auth/register returns EMAIL_ALREADY_EXISTS for duplicate email", async () => {
+		await prisma.user.create({
+			data: {
+				email: "taken@example.com",
+				name: "Taken",
+				passwordHash: await argon2.hash("SecureP4ss!"),
+			},
+		});
+
+		const response = await request(app.getHttpServer())
+			.post("/api/v1/auth/register")
+			.send({
+				email: "taken@example.com",
+				password: "SecureP4ss!",
+				name: "Dup",
+			})
+			.expect(409);
+
+		expect(response.body.error).toEqual({
+			code: "EMAIL_ALREADY_EXISTS",
+			message: "Email already registered.",
+			type: "business",
+			statusCode: 409,
+			path: "/api/v1/auth/register",
+			timestamp: expect.any(String),
+		});
+	});
+
+	it("POST /api/v1/auth/register returns 400 for invalid payloads", async () => {
+		for (const payload of [
+			{ email: "not-an-email", password: "SecureP4ss!", name: "Jane" },
+			{ email: "a@b.com", name: "Jane" },
+			{ email: "a@b.com", password: "short", name: "Jane" },
+			{ email: "a@b.com", password: "SecureP4ss!" },
+			{ email: "a@b.com", password: "SecureP4ss!", name: "   " },
+		]) {
+			await request(app.getHttpServer())
+				.post("/api/v1/auth/register")
+				.send(payload)
+				.expect(400);
+		}
+	});
+});
