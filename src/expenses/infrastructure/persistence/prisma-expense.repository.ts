@@ -21,13 +21,37 @@ export class PrismaExpenseRepository extends ExpenseRepository {
 	async findActiveGroupMembers(
 		groupId: string,
 	): Promise<GroupMemberRef[] | null> {
+		return this.findActiveGroupMembersByGroup({ groupId });
+	}
+
+	async findActiveGroupMembersForUser(input: {
+		groupId: string;
+		userId: string;
+	}): Promise<GroupMemberRef[] | null> {
+		return this.findActiveGroupMembersByGroup(input);
+	}
+
+	private async findActiveGroupMembersByGroup(input: {
+		groupId: string;
+		userId?: string;
+	}): Promise<GroupMemberRef[] | null> {
 		return this.runDatabaseOperation(
 			"EXPENSE_GROUP_MEMBERS_DATABASE_ERROR",
 			async () => {
 				const group = await this.prisma.group.findFirst({
 					where: {
-						id: groupId,
+						id: input.groupId,
 						archivedAt: null,
+						...(input.userId
+							? {
+									groupMembers: {
+										some: {
+											userId: input.userId,
+											removedAt: null,
+										},
+									},
+								}
+							: {}),
 					},
 					select: {
 						id: true,
@@ -40,7 +64,7 @@ export class PrismaExpenseRepository extends ExpenseRepository {
 
 				return this.prisma.groupMember.findMany({
 					where: {
-						groupId,
+						groupId: input.groupId,
 						removedAt: null,
 					},
 					select: {

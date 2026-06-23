@@ -66,6 +66,11 @@ export abstract class ExpenseRepository {
 		groupId: string,
 	): Promise<GroupMemberRef[] | null>;
 
+	abstract findActiveGroupMembersForUser(input: {
+		groupId: string;
+		userId: string;
+	}): Promise<GroupMemberRef[] | null>;
+
 	abstract create(expense: ExpenseEntity): Promise<ExpenseEntity>;
 
 	abstract update(

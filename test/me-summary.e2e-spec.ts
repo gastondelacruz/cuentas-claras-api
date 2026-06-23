@@ -9,9 +9,15 @@ import {
 import { execSync } from "node:child_process";
 import request from "supertest";
 import { AppModule } from "../src/app.module";
-import { DEV_USER_ID } from "../src/shared/constants/dev-user";
 import { HttpExceptionFilter } from "../src/shared/filters/http-exception.filter";
 import { ResponseInterceptor } from "../src/shared/interceptors/response.interceptor";
+import {
+	configureDefaultBearerAuth,
+	createBearerToken,
+} from "./helpers/auth.helper";
+
+const DEV_USER_ID = "00000000-0000-0000-0000-000000000001";
+const DEV_USER_EMAIL = "dev@cuentasclaras.local";
 
 describe("Me summary endpoint (e2e)", () => {
 	let app: INestApplication;
@@ -27,6 +33,11 @@ describe("Me summary endpoint (e2e)", () => {
 
 		process.env.DATABASE_URL = postgresContainer.getConnectionUri();
 		process.env.NODE_ENV = "test";
+		process.env.JWT_ACCESS_SECRET = "test-access-secret-with-at-least-32-chars";
+		process.env.JWT_REFRESH_SECRET =
+			"test-refresh-secret-with-at-least-32-chars";
+		process.env.JWT_ACCESS_TTL = "15m";
+		process.env.JWT_REFRESH_TTL = "30d";
 
 		execSync("npx prisma db push", {
 			cwd: process.cwd(),
@@ -59,6 +70,10 @@ describe("Me summary endpoint (e2e)", () => {
 		);
 		app.useGlobalFilters(new HttpExceptionFilter());
 		app.useGlobalInterceptors(new ResponseInterceptor());
+		configureDefaultBearerAuth(
+			app,
+			createBearerToken({ userId: DEV_USER_ID, email: DEV_USER_EMAIL }),
+		);
 
 		await app.init();
 	});

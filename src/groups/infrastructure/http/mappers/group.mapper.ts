@@ -17,8 +17,6 @@ import type {
 	RecordSettlementPaymentResult,
 } from "../../../application/use-cases/record-settlement-payment.use-case";
 
-const DEV_USER_ID = "00000000-0000-0000-0000-000000000001";
-
 export class GroupMapper {
 	static toDomain(dto: CreateGroupRequestDto): GroupEntity {
 		return new GroupEntity({
@@ -82,7 +80,10 @@ export class GroupMapper {
 		};
 	}
 
-	static toDetailResponseDto(group: GroupEntity): CreateGroupResponseDto {
+	static toDetailResponseDto(
+		group: GroupEntity,
+		userId: string,
+	): CreateGroupResponseDto {
 		return {
 			id: group.id,
 			name: group.name.getValue(),
@@ -92,7 +93,7 @@ export class GroupMapper {
 				id: member.id,
 				displayName: member.displayName,
 				email: member.getEmailValue() ?? undefined,
-				isCurrentUser: member.isCurrentUser(DEV_USER_ID),
+				isCurrentUser: member.isCurrentUser(userId),
 				removedAt: member.removedAt?.toISOString() ?? null,
 			})),
 			expenses: [],

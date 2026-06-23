@@ -11,8 +11,14 @@ import request from "supertest";
 import { AppModule } from "../src/app.module";
 import { HttpExceptionFilter } from "../src/shared/filters/http-exception.filter";
 import { ResponseInterceptor } from "../src/shared/interceptors/response.interceptor";
+import {
+	configureDefaultBearerAuth,
+	createBearerToken,
+	createExpiredBearerToken,
+} from "./helpers/auth.helper";
 
 const DEV_USER_ID = "00000000-0000-0000-0000-000000000001";
+const DEV_USER_EMAIL = "dev@cuentasclaras.local";
 
 describe("Groups endpoints (e2e)", () => {
 	let app: INestApplication;
@@ -28,6 +34,11 @@ describe("Groups endpoints (e2e)", () => {
 
 		process.env.DATABASE_URL = postgresContainer.getConnectionUri();
 		process.env.NODE_ENV = "test";
+		process.env.JWT_ACCESS_SECRET = "test-access-secret-with-at-least-32-chars";
+		process.env.JWT_REFRESH_SECRET =
+			"test-refresh-secret-with-at-least-32-chars";
+		process.env.JWT_ACCESS_TTL = "15m";
+		process.env.JWT_REFRESH_TTL = "30d";
 
 		execSync("npx prisma db push", {
 			cwd: process.cwd(),
@@ -60,6 +71,10 @@ describe("Groups endpoints (e2e)", () => {
 		);
 		app.useGlobalFilters(new HttpExceptionFilter());
 		app.useGlobalInterceptors(new ResponseInterceptor());
+		configureDefaultBearerAuth(
+			app,
+			createBearerToken({ userId: DEV_USER_ID, email: DEV_USER_EMAIL }),
+		);
 
 		await app.init();
 	});
@@ -91,6 +106,30 @@ describe("Groups endpoints (e2e)", () => {
 				},
 			},
 		});
+	});
+
+	it("GET /api/v1/groups returns 401 without a bearer token", async () => {
+		await request(app.getHttpServer())
+			.get("/api/v1/groups")
+			.set("x-skip-test-auth", "true")
+			.expect(401);
+	});
+
+	it("GET /api/v1/groups returns 401 with an expired bearer token", async () => {
+		await request(app.getHttpServer())
+			.get("/api/v1/groups")
+			.set(
+				"Authorization",
+				createExpiredBearerToken({ userId: DEV_USER_ID, email: DEV_USER_EMAIL }),
+			)
+			.expect(401);
+	});
+
+	it("GET /api/v1/groups returns 401 with a malformed bearer token", async () => {
+		await request(app.getHttpServer())
+			.get("/api/v1/groups")
+			.set("Authorization", "Bearer malformed-token")
+			.expect(401);
 	});
 
 	it("POST /api/v1/groups creates a group with invited members", async () => {

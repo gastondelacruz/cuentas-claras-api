@@ -40,10 +40,10 @@ describe("GetGroupSettlementsUseCase", () => {
 		useCase = module.get(GetGroupSettlementsUseCase);
 	});
 
-	it("returns settlement suggestions for the dev user group", async () => {
+	it("returns settlement suggestions for the authenticated user group", async () => {
 		repository.findGroupLedgerForUser.mockResolvedValue(ledger);
 
-		const result = await useCase.execute("group-1");
+		const result = await useCase.execute("user-1", "group-1");
 
 		expect(result).toEqual([
 			{
@@ -57,7 +57,7 @@ describe("GetGroupSettlementsUseCase", () => {
 		]);
 		expect(repository.findGroupLedgerForUser).toHaveBeenCalledWith({
 			groupId: "group-1",
-			userId: "00000000-0000-0000-0000-000000000001",
+			userId: "user-1",
 		});
 	});
 
@@ -83,7 +83,7 @@ describe("GetGroupSettlementsUseCase", () => {
 
 		repository.findGroupLedgerForUser.mockResolvedValue(settledLedger);
 
-		const result = await useCase.execute("group-1");
+		const result = await useCase.execute("user-1", "group-1");
 
 		expect(result).toEqual([]);
 	});
@@ -91,13 +91,13 @@ describe("GetGroupSettlementsUseCase", () => {
 	it("throws BusinessException when the group is missing or not accessible", async () => {
 		repository.findGroupLedgerForUser.mockResolvedValue(null);
 
-		await expect(useCase.execute("missing-group")).rejects.toMatchObject({
+		await expect(useCase.execute("user-1", "missing-group")).rejects.toMatchObject({
 			code: "GROUP_NOT_FOUND",
 			message: "Group not found.",
 			statusCode: 404,
 			type: "business",
 		});
-		await expect(useCase.execute("missing-group")).rejects.toBeInstanceOf(
+		await expect(useCase.execute("user-1", "missing-group")).rejects.toBeInstanceOf(
 			BusinessException,
 		);
 	});

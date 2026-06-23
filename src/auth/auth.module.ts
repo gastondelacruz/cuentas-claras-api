@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { JwtModule } from "@nestjs/jwt";
+import { PassportModule } from "@nestjs/passport";
 import authConfig from "../config/auth.config";
 import { LoginUseCase } from "./application/use-cases/login.use-case";
 import { RegisterUseCase } from "./application/use-cases/register.use-case";
@@ -12,16 +13,22 @@ import { AuthController } from "./infrastructure/http/auth.controller";
 import { PrismaAuthUserRepository } from "./infrastructure/persistence/prisma-auth-user.repository";
 import { PrismaRefreshTokenRepository } from "./infrastructure/persistence/prisma-refresh-token.repository";
 import { Argon2PasswordHasher } from "./infrastructure/security/argon2-password-hasher";
+import { JwtStrategy } from "./infrastructure/security/jwt.strategy";
 import { JwtTokenService } from "./infrastructure/security/jwt-token.service";
 
 @Module({
-	imports: [ConfigModule.forFeature(authConfig), JwtModule.register({})],
+	imports: [
+		ConfigModule.forFeature(authConfig),
+		PassportModule.register({ defaultStrategy: "jwt" }),
+		JwtModule.register({}),
+	],
 	controllers: [AuthController],
 	providers: [
 		RegisterUseCase,
 		LoginUseCase,
 		Argon2PasswordHasher,
 		JwtTokenService,
+		JwtStrategy,
 		PrismaAuthUserRepository,
 		PrismaRefreshTokenRepository,
 		{
@@ -41,5 +48,6 @@ import { JwtTokenService } from "./infrastructure/security/jwt-token.service";
 			useExisting: PrismaRefreshTokenRepository,
 		},
 	],
+	exports: [PassportModule, JwtModule, JwtStrategy],
 })
 export class AuthModule {}

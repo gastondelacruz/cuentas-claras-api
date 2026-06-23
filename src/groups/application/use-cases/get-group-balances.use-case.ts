@@ -1,5 +1,4 @@
 import { Injectable } from "@nestjs/common";
-import { DEV_USER_ID } from "../../../shared/constants/dev-user";
 import { BusinessException } from "../../../shared/exceptions/business.exception";
 import { GroupRepository } from "../../domain/ports/group.repository";
 import {
@@ -11,10 +10,10 @@ import {
 export class GetGroupBalancesUseCase {
 	constructor(private readonly groupRepository: GroupRepository) {}
 
-	async execute(groupId: string): Promise<MemberBalance[]> {
+	async execute(userId: string, groupId: string): Promise<MemberBalance[]> {
 		const ledger = await this.groupRepository.findGroupLedgerForUser({
 			groupId,
-			userId: DEV_USER_ID,
+			userId,
 		});
 
 		if (ledger === null) {

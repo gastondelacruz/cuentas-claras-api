@@ -51,18 +51,18 @@ describe("ListGroupsUseCase", () => {
     useCase = module.get(ListGroupsUseCase);
   });
 
-  it("returns the list of groups for the dev user", async () => {
+	it("returns the list of groups for the authenticated user", async () => {
     repository.listByUser.mockResolvedValue(groups);
 
-    await expect(useCase.execute()).resolves.toEqual(groups);
-    expect(repository.listByUser).toHaveBeenCalledWith(
-      "00000000-0000-0000-0000-000000000001",
-    );
-  });
+		await expect(useCase.execute("user-1")).resolves.toEqual(groups);
+		expect(repository.listByUser).toHaveBeenCalledWith(
+			"user-1",
+		);
+	});
 
   it("returns an empty array when the dev user has no groups", async () => {
     repository.listByUser.mockResolvedValue([]);
 
-    await expect(useCase.execute()).resolves.toEqual([]);
+		await expect(useCase.execute("user-1")).resolves.toEqual([]);
   });
 });

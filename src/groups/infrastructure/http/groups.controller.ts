@@ -8,7 +8,13 @@ import {
 	Patch,
 	Post,
 } from "@nestjs/common";
-import { ApiCreatedResponse, ApiOkResponse, ApiTags } from "@nestjs/swagger";
+import {
+	ApiBearerAuth,
+	ApiCreatedResponse,
+	ApiOkResponse,
+	ApiTags,
+} from "@nestjs/swagger";
+import { CurrentUser } from "../../../shared/decorators/current-user.decorator";
 import { ArchiveGroupUseCase } from "../../application/use-cases/archive-group.use-case";
 import { CreateGroupUseCase } from "../../application/use-cases/create-group.use-case";
 import { GetGroupBalancesUseCase } from "../../application/use-cases/get-group-balances.use-case";
@@ -27,6 +33,7 @@ import { RecordSettlementPaymentRequestDto } from "./dto/record-settlement-payme
 import { RecordSettlementPaymentResponseDto } from "./dto/record-settlement-payment-response.dto";
 
 @ApiTags("groups")
+@ApiBearerAuth()
 @Controller("api/v1/groups")
 export class GroupsController {
 	constructor(
@@ -42,53 +49,63 @@ export class GroupsController {
 
   @Post()
   @ApiCreatedResponse()
-	async create(@Body() body: CreateGroupRequestDto): Promise<CreateGroupResponseDto> {
+	async create(
+		@CurrentUser("userId") userId: string,
+		@Body() body: CreateGroupRequestDto,
+	): Promise<CreateGroupResponseDto> {
 		const groupDomain = GroupMapper.toDomain(body);
-		const group = await this.createGroupUseCase.execute(groupDomain);
+		const group = await this.createGroupUseCase.execute(userId, groupDomain);
 		return GroupMapper.toCreateResponseDto(group);
 	}
 
   @Get()
   @ApiOkResponse()
-	async list(): Promise<CreateGroupResponseDto[]> {
-		const groups = await this.listGroupsUseCase.execute();
+	async list(
+		@CurrentUser("userId") userId: string,
+	): Promise<CreateGroupResponseDto[]> {
+		const groups = await this.listGroupsUseCase.execute(userId);
 		return groups.map((group) => GroupMapper.toListResponseDto(group));
 	}
 
   @Get(":groupId")
   @ApiOkResponse()
 	async getById(
+		@CurrentUser("userId") userId: string,
 		@Param("groupId", ParseUUIDPipe) groupId: string,
 	): Promise<CreateGroupResponseDto> {
-		const group = await this.getGroupDetailUseCase.execute(groupId);
-		return GroupMapper.toDetailResponseDto(group);
+		const group = await this.getGroupDetailUseCase.execute(userId, groupId);
+		return GroupMapper.toDetailResponseDto(group, userId);
 	}
 
   @Get(":groupId/balances")
   @ApiOkResponse()
 	async getBalances(
+		@CurrentUser("userId") userId: string,
 		@Param("groupId", ParseUUIDPipe) groupId: string,
 	): Promise<GroupBalancesResponseDto> {
-		const balances = await this.getGroupBalancesUseCase.execute(groupId);
+		const balances = await this.getGroupBalancesUseCase.execute(userId, groupId);
 		return GroupMapper.toBalancesResponseDto(balances);
 	}
 
   @Get(":groupId/settlements")
   @ApiOkResponse()
 	async getSettlements(
+		@CurrentUser("userId") userId: string,
 		@Param("groupId", ParseUUIDPipe) groupId: string,
 	): Promise<GroupSettlementsResponseDto> {
-		const settlements = await this.getGroupSettlementsUseCase.execute(groupId);
+		const settlements = await this.getGroupSettlementsUseCase.execute(userId, groupId);
 		return GroupMapper.toSettlementsResponseDto(settlements);
 	}
 
   @Post(":groupId/settlements")
   @ApiCreatedResponse()
 	async recordSettlementPayment(
+		@CurrentUser("userId") userId: string,
 		@Param("groupId", ParseUUIDPipe) groupId: string,
 		@Body() body: RecordSettlementPaymentRequestDto,
 	): Promise<RecordSettlementPaymentResponseDto> {
 		const result = await this.recordSettlementPaymentUseCase.execute(
+			userId,
 			GroupMapper.toRecordSettlementPaymentInput(groupId, body),
 		);
 
@@ -98,10 +115,12 @@ export class GroupsController {
   @Patch(":groupId")
   @ApiOkResponse()
 	async update(
+		@CurrentUser("userId") userId: string,
 		@Param("groupId", ParseUUIDPipe) groupId: string,
 		@Body() body: UpdateGroupDto,
 	): Promise<CreateGroupResponseDto> {
 		const group = await this.updateGroupUseCase.execute(
+			userId,
 			groupId,
 			GroupMapper.toUpdatePayload(body),
 		);
@@ -111,9 +130,10 @@ export class GroupsController {
   @Delete(":groupId")
   @ApiOkResponse()
 	async archive(
+		@CurrentUser("userId") userId: string,
 		@Param("groupId", ParseUUIDPipe) groupId: string,
 	): Promise<CreateGroupResponseDto> {
-		const group = await this.archiveGroupUseCase.execute(groupId);
+		const group = await this.archiveGroupUseCase.execute(userId, groupId);
 		return GroupMapper.toArchiveResponseDto(group);
 	}
 }

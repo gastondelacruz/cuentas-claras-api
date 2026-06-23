@@ -1,5 +1,4 @@
 import { Injectable } from "@nestjs/common";
-import { DEV_USER_ID } from "../../../shared/constants/dev-user";
 import { BusinessException } from "../../../shared/exceptions/business.exception";
 import {
 	GroupRepository,
@@ -30,11 +29,12 @@ export class RecordSettlementPaymentUseCase {
 	constructor(private readonly groupRepository: GroupRepository) {}
 
 	async execute(
+		userId: string,
 		input: RecordSettlementPaymentInput,
 	): Promise<RecordSettlementPaymentResult> {
 		const members = await this.groupRepository.findActiveGroupMembersForUser({
 			groupId: input.groupId,
-			userId: DEV_USER_ID,
+			userId,
 		});
 
 		if (members === null) {
@@ -61,7 +61,7 @@ export class RecordSettlementPaymentUseCase {
 		const payment = await this.groupRepository.recordSettlementPayment(input);
 		const ledger = await this.groupRepository.findGroupLedgerForUser({
 			groupId: input.groupId,
-			userId: DEV_USER_ID,
+			userId,
 		});
 
 		if (ledger === null) {

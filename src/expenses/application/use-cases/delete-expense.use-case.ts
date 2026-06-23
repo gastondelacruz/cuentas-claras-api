@@ -1,5 +1,4 @@
 import { Injectable } from "@nestjs/common";
-import { DEV_USER_ID } from "../../../shared/constants/dev-user";
 import { BusinessException } from "../../../shared/exceptions/business.exception";
 import {
 	ExpenseRepository,
@@ -10,10 +9,10 @@ import {
 export class DeleteExpenseUseCase {
 	constructor(private readonly expenseRepository: ExpenseRepository) {}
 
-	async execute(expenseId: string): Promise<DeletedExpenseRef> {
+	async execute(userId: string, expenseId: string): Promise<DeletedExpenseRef> {
 		const deleted = await this.expenseRepository.softDeleteForUser({
 			expenseId,
-			userId: DEV_USER_ID,
+			userId,
 		});
 
 		if (deleted === null) {
