@@ -69,7 +69,7 @@ describe("RecordSettlementPaymentUseCase", () => {
 		});
 
 		await expect(
-			useCase.execute({
+			useCase.execute("user-1", {
 				groupId: "group-1",
 				fromMemberId: "from-member",
 				toMemberId: "to-member",
@@ -104,13 +104,21 @@ describe("RecordSettlementPaymentUseCase", () => {
 			paidAt,
 			notes: "Paid by transfer",
 		});
+		expect(repository.findActiveGroupMembersForUser).toHaveBeenCalledWith({
+			groupId: "group-1",
+			userId: "user-1",
+		});
+		expect(repository.findGroupLedgerForUser).toHaveBeenCalledWith({
+			groupId: "group-1",
+			userId: "user-1",
+		});
 	});
 
 	it("throws BusinessException when the group is missing or not accessible", async () => {
 		repository.findActiveGroupMembersForUser.mockResolvedValue(null);
 
 		await expect(
-			useCase.execute({
+			useCase.execute("user-1", {
 				groupId: "missing-group",
 				fromMemberId: "from-member",
 				toMemberId: "to-member",
@@ -133,7 +141,7 @@ describe("RecordSettlementPaymentUseCase", () => {
 		]);
 
 		await expect(
-			useCase.execute({
+			useCase.execute("user-1", {
 				groupId: "group-1",
 				fromMemberId: "from-member",
 				toMemberId: "missing-member",
@@ -149,7 +157,7 @@ describe("RecordSettlementPaymentUseCase", () => {
 			type: "business",
 		});
 		await expect(
-			useCase.execute({
+			useCase.execute("user-1", {
 				groupId: "group-1",
 				fromMemberId: "from-member",
 				toMemberId: "missing-member",
@@ -168,7 +176,7 @@ describe("RecordSettlementPaymentUseCase", () => {
 		]);
 
 		await expect(
-			useCase.execute({
+			useCase.execute("user-1", {
 				groupId: "group-1",
 				fromMemberId: "from-member",
 				toMemberId: "to-member",

@@ -28,7 +28,7 @@ describe("CreateGroupUseCase", () => {
     useCase = module.get(CreateGroupUseCase);
   });
 
-  it("delegates creation to the repository using the dev user id", async () => {
+	it("delegates creation to the repository using the authenticated user id", async () => {
 		const payload = new GroupEntity({
 			id: "group-1",
 			name: "Trip to Bariloche",
@@ -56,10 +56,10 @@ describe("CreateGroupUseCase", () => {
 
     repository.createForUser.mockResolvedValue(createdGroup);
 
-    await expect(useCase.execute(payload)).resolves.toEqual(createdGroup);
-    expect(repository.createForUser).toHaveBeenCalledWith(
-      "00000000-0000-0000-0000-000000000001",
-      payload,
-    );
-  });
+		await expect(useCase.execute("user-1", payload)).resolves.toEqual(createdGroup);
+		expect(repository.createForUser).toHaveBeenCalledWith(
+			"user-1",
+			payload,
+		);
+	});
 });

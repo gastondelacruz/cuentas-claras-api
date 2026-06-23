@@ -39,23 +39,23 @@ describe("ArchiveGroupUseCase", () => {
 
     repository.archiveByIdAndOwner.mockResolvedValue(archivedGroup);
 
-    await expect(useCase.execute("group-1")).resolves.toEqual(archivedGroup);
-    expect(repository.archiveByIdAndOwner).toHaveBeenCalledWith(
-      "group-1",
-      "00000000-0000-0000-0000-000000000001",
-    );
-  });
+		await expect(useCase.execute("user-1", "group-1")).resolves.toEqual(archivedGroup);
+		expect(repository.archiveByIdAndOwner).toHaveBeenCalledWith(
+			"group-1",
+			"user-1",
+		);
+	});
 
 	it("throws BusinessException when the group is missing or not owned", async () => {
 		repository.archiveByIdAndOwner.mockResolvedValue(null);
 
-		await expect(useCase.execute("missing-group")).rejects.toMatchObject({
+		await expect(useCase.execute("user-1", "missing-group")).rejects.toMatchObject({
 			code: "GROUP_NOT_FOUND",
 			message: "Group not found.",
 			statusCode: 404,
 			type: "business",
 		});
-		await expect(useCase.execute("missing-group")).rejects.toBeInstanceOf(
+		await expect(useCase.execute("user-1", "missing-group")).rejects.toBeInstanceOf(
 			BusinessException,
 		);
 	});

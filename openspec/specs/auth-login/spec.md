@@ -21,6 +21,16 @@ The system MUST normalize the submitted email by trimming whitespace and convert
 - WHEN the request reaches the endpoint
 - THEN the system SHALL reject it as a validation error
 
+### Requirement: Public login route
+
+`POST /api/v1/auth/login` MUST be public and allow unauthenticated access.
+
+#### Scenario: Login endpoint is public
+
+- GIVEN the `/api/v1/auth/login` endpoint
+- WHEN a POST request arrives without Authorization
+- THEN the system SHALL process the login normally
+
 ### Requirement: Generic invalid-credentials failure
 
 The system MUST reject invalid login attempts with `BusinessException("INVALID_CREDENTIALS", "Invalid credentials.", 401)`.

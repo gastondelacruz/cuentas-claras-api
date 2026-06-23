@@ -40,29 +40,29 @@ describe("GetGroupBalancesUseCase", () => {
 		useCase = module.get(GetGroupBalancesUseCase);
 	});
 
-	it("returns the calculated balances for the dev user group", async () => {
+	it("returns the calculated balances for the authenticated user group", async () => {
 		repository.findGroupLedgerForUser.mockResolvedValue(ledger);
 
-		await expect(useCase.execute("group-1")).resolves.toEqual([
+		await expect(useCase.execute("user-1", "group-1")).resolves.toEqual([
 			{ memberId: "m1", displayName: "Gaston", balance: 15000, currency: "ARS" },
 			{ memberId: "m2", displayName: "Ana", balance: -15000, currency: "ARS" },
 		]);
 		expect(repository.findGroupLedgerForUser).toHaveBeenCalledWith({
 			groupId: "group-1",
-			userId: "00000000-0000-0000-0000-000000000001",
+			userId: "user-1",
 		});
 	});
 
 	it("throws BusinessException when the group is missing or not accessible", async () => {
 		repository.findGroupLedgerForUser.mockResolvedValue(null);
 
-		await expect(useCase.execute("missing-group")).rejects.toMatchObject({
+		await expect(useCase.execute("user-1", "missing-group")).rejects.toMatchObject({
 			code: "GROUP_NOT_FOUND",
 			message: "Group not found.",
 			statusCode: 404,
 			type: "business",
 		});
-		await expect(useCase.execute("missing-group")).rejects.toBeInstanceOf(
+		await expect(useCase.execute("user-1", "missing-group")).rejects.toBeInstanceOf(
 			BusinessException,
 		);
 	});

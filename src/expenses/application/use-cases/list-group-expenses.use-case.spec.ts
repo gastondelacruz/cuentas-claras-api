@@ -26,7 +26,7 @@ describe("ListGroupExpensesUseCase", () => {
 		useCase = module.get(ListGroupExpensesUseCase);
 	});
 
-	it("delegates listing to the repository using the temporary dev user", async () => {
+	it("delegates listing to the repository using the authenticated user", async () => {
 		const page = {
 			expenses: [],
 			nextCursor: null,
@@ -34,12 +34,12 @@ describe("ListGroupExpensesUseCase", () => {
 		repository.listByGroupForUser.mockResolvedValue(page);
 
 		await expect(
-			useCase.execute({ groupId: "group-1", limit: 10, cursor: "expense-1" }),
+			useCase.execute("user-1", { groupId: "group-1", limit: 10, cursor: "expense-1" }),
 		).resolves.toBe(page);
 
 		expect(repository.listByGroupForUser).toHaveBeenCalledWith({
 			groupId: "group-1",
-			userId: "00000000-0000-0000-0000-000000000001",
+			userId: "user-1",
 			limit: 10,
 			cursor: "expense-1",
 		});
@@ -49,7 +49,7 @@ describe("ListGroupExpensesUseCase", () => {
 		repository.listByGroupForUser.mockResolvedValue(null);
 
 		await expect(
-			useCase.execute({ groupId: "group-1", limit: 20 }),
+			useCase.execute("user-1", { groupId: "group-1", limit: 20 }),
 		).rejects.toMatchObject({
 			code: "GROUP_NOT_FOUND",
 			statusCode: 404,

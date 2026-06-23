@@ -26,7 +26,7 @@ describe("GetExpenseDetailUseCase", () => {
 		useCase = module.get(GetExpenseDetailUseCase);
 	});
 
-	it("delegates detail lookup to the repository using the temporary dev user", async () => {
+	it("delegates detail lookup to the repository using the authenticated user", async () => {
 		const detail = {
 			id: "expense-1",
 			groupId: "group-1",
@@ -44,17 +44,17 @@ describe("GetExpenseDetailUseCase", () => {
 		};
 		repository.findDetailByIdForUser.mockResolvedValue(detail);
 
-		await expect(useCase.execute("expense-1")).resolves.toBe(detail);
+		await expect(useCase.execute("user-1", "expense-1")).resolves.toBe(detail);
 		expect(repository.findDetailByIdForUser).toHaveBeenCalledWith({
 			expenseId: "expense-1",
-			userId: "00000000-0000-0000-0000-000000000001",
+			userId: "user-1",
 		});
 	});
 
 	it("throws EXPENSE_NOT_FOUND when the expense is missing or inaccessible", async () => {
 		repository.findDetailByIdForUser.mockResolvedValue(null);
 
-		await expect(useCase.execute("expense-1")).rejects.toMatchObject({
+		await expect(useCase.execute("user-1", "expense-1")).rejects.toMatchObject({
 			code: "EXPENSE_NOT_FOUND",
 			statusCode: 404,
 		});

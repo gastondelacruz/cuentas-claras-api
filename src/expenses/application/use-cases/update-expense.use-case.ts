@@ -1,5 +1,4 @@
 import { Injectable } from "@nestjs/common";
-import { DEV_USER_ID } from "../../../shared/constants/dev-user";
 import { BusinessException } from "../../../shared/exceptions/business.exception";
 import { ExpenseEntity } from "../../domain/entities/expense-entity";
 import { ExpenseSplitEntity } from "../../domain/entities/expense-split-entity";
@@ -27,10 +26,10 @@ export type UpdateExpenseInput = {
 export class UpdateExpenseUseCase {
 	constructor(private readonly expenseRepository: ExpenseRepository) {}
 
-	async execute(input: UpdateExpenseInput): Promise<ExpenseDetail> {
+	async execute(userId: string, input: UpdateExpenseInput): Promise<ExpenseDetail> {
 		const current = await this.expenseRepository.findDetailByIdForUser({
 			expenseId: input.expenseId,
-			userId: DEV_USER_ID,
+			userId,
 		});
 
 		if (current === null) {
@@ -76,9 +75,10 @@ export class UpdateExpenseUseCase {
 			});
 		}
 
-		const members = await this.expenseRepository.findActiveGroupMembers(
-			current.groupId,
-		);
+		const members = await this.expenseRepository.findActiveGroupMembersForUser({
+			groupId: current.groupId,
+			userId,
+		});
 
 		if (members === null) {
 			throw new BusinessException("GROUP_NOT_FOUND", "Group not found.", 404);

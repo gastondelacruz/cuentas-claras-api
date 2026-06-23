@@ -1,5 +1,6 @@
 import { Body, Controller, HttpCode, HttpStatus, Post } from "@nestjs/common";
 import { ApiOkResponse, ApiCreatedResponse, ApiTags } from "@nestjs/swagger";
+import { Public } from "../../../shared/decorators/public.decorator";
 import { LoginUseCase } from "../../application/use-cases/login.use-case";
 import { RegisterUseCase } from "../../application/use-cases/register.use-case";
 import { LoginRequestDto } from "./dto/login-request.dto";
@@ -16,6 +17,7 @@ export class AuthController {
 	) {}
 
 	@Post("register")
+	@Public()
 	@ApiCreatedResponse({ type: RegisterResponseDto })
 	async register(
 		@Body() body: RegisterRequestDto,
@@ -28,6 +30,7 @@ export class AuthController {
 	}
 
 	@Post("login")
+	@Public()
 	@HttpCode(HttpStatus.OK)
 	@ApiOkResponse({ type: RegisterResponseDto })
 	async login(@Body() body: LoginRequestDto): Promise<RegisterResponseDto> {

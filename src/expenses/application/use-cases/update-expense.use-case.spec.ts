@@ -10,6 +10,7 @@ describe("UpdateExpenseUseCase", () => {
 	let repository: {
 		findDetailByIdForUser: ReturnType<typeof vi.fn>;
 		findActiveGroupMembers: ReturnType<typeof vi.fn>;
+		findActiveGroupMembersForUser: ReturnType<typeof vi.fn>;
 		update: ReturnType<typeof vi.fn>;
 	};
 
@@ -48,6 +49,7 @@ describe("UpdateExpenseUseCase", () => {
 		repository = {
 			findDetailByIdForUser: vi.fn(),
 			findActiveGroupMembers: vi.fn(),
+			findActiveGroupMembersForUser: vi.fn(),
 			update: vi.fn(),
 		};
 
@@ -68,7 +70,7 @@ describe("UpdateExpenseUseCase", () => {
 		repository.findDetailByIdForUser.mockResolvedValue(null);
 
 		await expect(
-			useCase.execute({ expenseId: "expense-1", title: "Updated" }),
+			useCase.execute("user-1", { expenseId: "expense-1", title: "Updated" }),
 		).rejects.toMatchObject({
 			code: "EXPENSE_NOT_FOUND",
 			statusCode: 404,
@@ -78,12 +80,12 @@ describe("UpdateExpenseUseCase", () => {
 
 	it("validates changed payer and participants against active group members", async () => {
 		repository.findDetailByIdForUser.mockResolvedValue(currentExpense);
-		repository.findActiveGroupMembers.mockResolvedValue([
+		repository.findActiveGroupMembersForUser.mockResolvedValue([
 			{ id: "member-a", displayName: "Gaston" },
 		]);
 
 		await expect(
-			useCase.execute({
+			useCase.execute("user-1", {
 				expenseId: "expense-1",
 				paidByMemberId: "member-b",
 			}),
@@ -96,7 +98,7 @@ describe("UpdateExpenseUseCase", () => {
 
 	it("preserves splits and skips active-member validation for metadata-only updates", async () => {
 		repository.findDetailByIdForUser.mockResolvedValue(currentExpense);
-		repository.findActiveGroupMembers.mockResolvedValue([
+		repository.findActiveGroupMembersForUser.mockResolvedValue([
 			{ id: "member-a", displayName: "Gaston" },
 		]);
 		repository.update.mockImplementation((_expenseId, expense) =>
@@ -111,7 +113,7 @@ describe("UpdateExpenseUseCase", () => {
 		);
 
 		const expenseDate = new Date("2026-06-14T20:00:00.000Z");
-		await useCase.execute({
+		await useCase.execute("user-1", {
 			expenseId: "expense-1",
 			title: "Updated title",
 			currency: "USD",
@@ -120,7 +122,7 @@ describe("UpdateExpenseUseCase", () => {
 			expenseDate,
 		});
 
-		expect(repository.findActiveGroupMembers).not.toHaveBeenCalled();
+		expect(repository.findActiveGroupMembersForUser).not.toHaveBeenCalled();
 		expect(repository.update).toHaveBeenCalledTimes(1);
 		const [expenseId, updatedExpense, options] = repository.update.mock.calls[0];
 		expect(expenseId).toBe("expense-1");
@@ -140,7 +142,7 @@ describe("UpdateExpenseUseCase", () => {
 
 	it("builds an updated expense and recalculates equal splits", async () => {
 		repository.findDetailByIdForUser.mockResolvedValue(currentExpense);
-		repository.findActiveGroupMembers.mockResolvedValue([
+		repository.findActiveGroupMembersForUser.mockResolvedValue([
 			{ id: "member-a", displayName: "Gaston" },
 			{ id: "member-b", displayName: "Ana" },
 			{ id: "member-c", displayName: "Mora" },
@@ -168,7 +170,12 @@ describe("UpdateExpenseUseCase", () => {
 			paidByMemberId: "member-b",
 			participantMemberIds: ["member-b", "member-c"],
 		};
-		const result = await useCase.execute(input);
+		const result = await useCase.execute("user-1", input);
+
+		expect(repository.findActiveGroupMembersForUser).toHaveBeenCalledWith({
+			groupId: "group-1",
+			userId: "user-1",
+		});
 
 		expect(repository.update).toHaveBeenCalledTimes(1);
 		const updatedExpense = repository.update.mock.calls[0][1];

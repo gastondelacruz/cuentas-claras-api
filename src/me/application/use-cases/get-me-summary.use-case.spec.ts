@@ -41,18 +41,18 @@ describe("GetMeSummaryUseCase", () => {
 
 		repository.getRawSummaryInputsForUser.mockResolvedValue(rawInputs);
 
-		await expect(useCase.execute()).resolves.toEqual({
+		await expect(useCase.execute("user-1")).resolves.toEqual({
 			totalGroups: 0,
 			totalExpenses: 0,
 			totalsByCurrency: [],
 			activeSince: null,
 		});
 		expect(repository.getRawSummaryInputsForUser).toHaveBeenCalledWith(
-			"00000000-0000-0000-0000-000000000001",
+			"user-1",
 		);
 	});
 
-	it("computes the full summary from raw inputs for the temporary dev user", async () => {
+	it("computes the full summary from raw inputs for the authenticated user", async () => {
 		const activeSince = new Date("2026-01-05T00:00:00.000Z");
 		const laterMembership = new Date("2026-02-01T00:00:00.000Z");
 
@@ -67,7 +67,7 @@ describe("GetMeSummaryUseCase", () => {
 
 		repository.getRawSummaryInputsForUser.mockResolvedValue(rawInputs);
 
-		await expect(useCase.execute()).resolves.toEqual({
+		await expect(useCase.execute("user-1")).resolves.toEqual({
 			totalGroups: 2,
 			totalExpenses: 3,
 			totalsByCurrency: [
@@ -81,7 +81,7 @@ describe("GetMeSummaryUseCase", () => {
 			activeSince,
 		});
 		expect(repository.getRawSummaryInputsForUser).toHaveBeenCalledWith(
-			"00000000-0000-0000-0000-000000000001",
+			"user-1",
 		);
 	});
 });

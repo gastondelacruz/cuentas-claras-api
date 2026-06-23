@@ -33,16 +33,20 @@ describe("DeleteExpenseUseCase", () => {
 			deletedAt,
 		});
 
-		await expect(useCase.execute("expense-1")).resolves.toEqual({
+		await expect(useCase.execute("user-1", "expense-1")).resolves.toEqual({
 			id: "expense-1",
 			deletedAt,
+		});
+		expect(repository.softDeleteForUser).toHaveBeenCalledWith({
+			expenseId: "expense-1",
+			userId: "user-1",
 		});
 	});
 
 	it("throws EXPENSE_NOT_FOUND when the expense is not visible to the user", async () => {
 		repository.softDeleteForUser.mockResolvedValue(null);
 
-		await expect(useCase.execute("expense-1")).rejects.toMatchObject({
+		await expect(useCase.execute("user-1", "expense-1")).rejects.toMatchObject({
 			code: "EXPENSE_NOT_FOUND",
 			statusCode: 404,
 		});

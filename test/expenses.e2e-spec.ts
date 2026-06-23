@@ -12,8 +12,13 @@ import request from "supertest";
 import { AppModule } from "../src/app.module";
 import { HttpExceptionFilter } from "../src/shared/filters/http-exception.filter";
 import { ResponseInterceptor } from "../src/shared/interceptors/response.interceptor";
+import {
+	configureDefaultBearerAuth,
+	createBearerToken,
+} from "./helpers/auth.helper";
 
 const DEV_USER_ID = "00000000-0000-0000-0000-000000000001";
+const DEV_USER_EMAIL = "dev@cuentasclaras.local";
 const MISSING_GROUP_ID = "99999999-9999-4999-8999-999999999999";
 const MISSING_MEMBER_ID = "88888888-8888-4888-8888-888888888888";
 
@@ -31,6 +36,11 @@ describe("Expenses endpoints (e2e)", () => {
 
 		process.env.DATABASE_URL = postgresContainer.getConnectionUri();
 		process.env.NODE_ENV = "test";
+		process.env.JWT_ACCESS_SECRET = "test-access-secret-with-at-least-32-chars";
+		process.env.JWT_REFRESH_SECRET =
+			"test-refresh-secret-with-at-least-32-chars";
+		process.env.JWT_ACCESS_TTL = "15m";
+		process.env.JWT_REFRESH_TTL = "30d";
 
 		execSync("npx prisma db push", {
 			cwd: process.cwd(),
@@ -63,6 +73,10 @@ describe("Expenses endpoints (e2e)", () => {
 		);
 		app.useGlobalFilters(new HttpExceptionFilter());
 		app.useGlobalInterceptors(new ResponseInterceptor());
+		configureDefaultBearerAuth(
+			app,
+			createBearerToken({ userId: DEV_USER_ID, email: DEV_USER_EMAIL }),
+		);
 
 		await app.init();
 	});
@@ -221,8 +235,8 @@ describe("Expenses endpoints (e2e)", () => {
 	}
 
 	it("POST creates an expense with an equal split and persists the splits", async () => {
-		const { group, members } = await createGroupWithMembers(["Gaston", "Ana"]);
-		const [gaston, ana] = members;
+		const { group, members } = await createAccessibleGroupWithMembers(["Gaston", "Ana"]);
+		const [, gaston, ana] = members;
 
 		const response = await request(app.getHttpServer())
 			.post(`/api/v1/groups/${group.id}/expenses`)
@@ -915,8 +929,8 @@ describe("Expenses endpoints (e2e)", () => {
 	});
 
 	it("POST distributes remainder cents so the split stays exact", async () => {
-		const { group, members } = await createGroupWithMembers(["A", "B", "C"]);
-		const [a, b, c] = members;
+		const { group, members } = await createAccessibleGroupWithMembers(["A", "B", "C"]);
+		const [, a, b, c] = members;
 
 		const response = await request(app.getHttpServer())
 			.post(`/api/v1/groups/${group.id}/expenses`)
@@ -943,8 +957,8 @@ describe("Expenses endpoints (e2e)", () => {
 	});
 
 	it("POST returns 400 for invalid payloads", async () => {
-		const { group, members } = await createGroupWithMembers(["Gaston", "Ana"]);
-		const [gaston, ana] = members;
+		const { group, members } = await createAccessibleGroupWithMembers(["Gaston", "Ana"]);
+		const [, gaston, ana] = members;
 
 		const validBody = {
 			title: "Dinner",
@@ -995,8 +1009,8 @@ describe("Expenses endpoints (e2e)", () => {
 	});
 
 	it("POST returns 400 when the payer does not belong to the group", async () => {
-		const { group, members } = await createGroupWithMembers(["Gaston", "Ana"]);
-		const [gaston, ana] = members;
+		const { group, members } = await createAccessibleGroupWithMembers(["Gaston", "Ana"]);
+		const [, gaston, ana] = members;
 
 		const response = await request(app.getHttpServer())
 			.post(`/api/v1/groups/${group.id}/expenses`)
@@ -1017,8 +1031,8 @@ describe("Expenses endpoints (e2e)", () => {
 	});
 
 	it("POST returns 400 when a participant does not belong to the group", async () => {
-		const { group, members } = await createGroupWithMembers(["Gaston"]);
-		const [gaston] = members;
+		const { group, members } = await createAccessibleGroupWithMembers(["Gaston"]);
+		const [, gaston] = members;
 
 		const response = await request(app.getHttpServer())
 			.post(`/api/v1/groups/${group.id}/expenses`)
@@ -1039,8 +1053,8 @@ describe("Expenses endpoints (e2e)", () => {
 	});
 
 	it("POST returns 400 when the payer is not part of the participants", async () => {
-		const { group, members } = await createGroupWithMembers(["Gaston", "Ana"]);
-		const [gaston, ana] = members;
+		const { group, members } = await createAccessibleGroupWithMembers(["Gaston", "Ana"]);
+		const [, gaston, ana] = members;
 
 		const response = await request(app.getHttpServer())
 			.post(`/api/v1/groups/${group.id}/expenses`)

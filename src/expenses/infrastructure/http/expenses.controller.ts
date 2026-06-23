@@ -9,7 +9,13 @@ import {
 	Post,
 	Query,
 } from "@nestjs/common";
-import { ApiCreatedResponse, ApiOkResponse, ApiTags } from "@nestjs/swagger";
+import {
+	ApiBearerAuth,
+	ApiCreatedResponse,
+	ApiOkResponse,
+	ApiTags,
+} from "@nestjs/swagger";
+import { CurrentUser } from "../../../shared/decorators/current-user.decorator";
 import { CreateExpenseUseCase } from "../../application/use-cases/create-expense.use-case";
 import { DeleteExpenseUseCase } from "../../application/use-cases/delete-expense.use-case";
 import { GetExpenseDetailUseCase } from "../../application/use-cases/get-expense-detail.use-case";
@@ -24,6 +30,7 @@ import { UpdateExpenseRequestDto } from "./dto/update-expense-request.dto";
 import { ExpenseMapper } from "./mappers/expense.mapper";
 
 @ApiTags("expenses")
+@ApiBearerAuth()
 @Controller("api/v1/groups/:groupId/expenses")
 export class ExpensesController {
 	constructor(
@@ -34,10 +41,11 @@ export class ExpensesController {
 	@Get()
 	@ApiOkResponse()
 	async list(
+		@CurrentUser("userId") userId: string,
 		@Param("groupId", ParseUUIDPipe) groupId: string,
 		@Query() query: ListExpensesQueryDto,
 	): Promise<ListExpensesResponseDto> {
-		const page = await this.listGroupExpensesUseCase.execute({
+		const page = await this.listGroupExpensesUseCase.execute(userId, {
 			groupId,
 			limit: query.limit,
 			cursor: query.cursor,
@@ -48,16 +56,18 @@ export class ExpensesController {
 	@Post()
 	@ApiCreatedResponse()
 	async create(
+		@CurrentUser("userId") userId: string,
 		@Param("groupId", ParseUUIDPipe) groupId: string,
 		@Body() body: CreateExpenseRequestDto,
 	): Promise<CreateExpenseResponseDto> {
 		const input = ExpenseMapper.toInput(groupId, body);
-		const expense = await this.createExpenseUseCase.execute(input);
+		const expense = await this.createExpenseUseCase.execute(userId, input);
 		return ExpenseMapper.toCreateResponseDto(expense);
 	}
 }
 
 @ApiTags("expenses")
+@ApiBearerAuth()
 @Controller("api/v1/expenses")
 export class ExpenseDetailController {
 	constructor(
@@ -69,29 +79,32 @@ export class ExpenseDetailController {
 	@Get(":expenseId")
 	@ApiOkResponse()
 	async getById(
+		@CurrentUser("userId") userId: string,
 		@Param("expenseId", ParseUUIDPipe) expenseId: string,
 	): Promise<CreateExpenseResponseDto> {
-		const expense = await this.getExpenseDetailUseCase.execute(expenseId);
+		const expense = await this.getExpenseDetailUseCase.execute(userId, expenseId);
 		return ExpenseMapper.toDetailResponseDto(expense);
 	}
 
 	@Patch(":expenseId")
 	@ApiOkResponse()
 	async update(
+		@CurrentUser("userId") userId: string,
 		@Param("expenseId", ParseUUIDPipe) expenseId: string,
 		@Body() body: UpdateExpenseRequestDto,
 	): Promise<CreateExpenseResponseDto> {
 		const input = ExpenseMapper.toUpdateInput(expenseId, body);
-		const expense = await this.updateExpenseUseCase.execute(input);
+		const expense = await this.updateExpenseUseCase.execute(userId, input);
 		return ExpenseMapper.toDetailResponseDto(expense);
 	}
 
 	@Delete(":expenseId")
 	@ApiOkResponse()
 	async delete(
+		@CurrentUser("userId") userId: string,
 		@Param("expenseId", ParseUUIDPipe) expenseId: string,
 	): Promise<DeleteExpenseResponseDto> {
-		const deleted = await this.deleteExpenseUseCase.execute(expenseId);
+		const deleted = await this.deleteExpenseUseCase.execute(userId, expenseId);
 		return ExpenseMapper.toDeleteResponseDto(deleted);
 	}
 }

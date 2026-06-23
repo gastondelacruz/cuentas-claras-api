@@ -1,5 +1,4 @@
 import { Injectable } from "@nestjs/common";
-import { DEV_USER_ID } from "../../../shared/constants/dev-user";
 import { BusinessException } from "../../../shared/exceptions/business.exception";
 import {
 	ExpenseRepository,
@@ -16,10 +15,10 @@ export type ListGroupExpensesInput = {
 export class ListGroupExpensesUseCase {
 	constructor(private readonly expenseRepository: ExpenseRepository) {}
 
-	async execute(input: ListGroupExpensesInput): Promise<ExpenseListPage> {
+	async execute(userId: string, input: ListGroupExpensesInput): Promise<ExpenseListPage> {
 		const page = await this.expenseRepository.listByGroupForUser({
 			groupId: input.groupId,
-			userId: DEV_USER_ID,
+			userId,
 			limit: input.limit,
 			cursor: input.cursor,
 		});

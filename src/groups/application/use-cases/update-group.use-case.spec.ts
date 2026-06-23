@@ -30,7 +30,7 @@ describe("UpdateGroupUseCase", () => {
     useCase = module.get(UpdateGroupUseCase);
   });
 
-  it("updates a group for the dev user", async () => {
+	it("updates a group for the authenticated user", async () => {
 		const payload: UpdateGroupPayload = {
 			name: "Updated name",
 			description: "Updated description",
@@ -56,21 +56,21 @@ describe("UpdateGroupUseCase", () => {
 
     repository.updateByIdAndOwner.mockResolvedValue(updatedGroup);
 
-    await expect(useCase.execute("group-1", payload)).resolves.toEqual(
-      updatedGroup,
-    );
-    expect(repository.updateByIdAndOwner).toHaveBeenCalledWith(
-      "group-1",
-      "00000000-0000-0000-0000-000000000001",
-      payload,
-    );
-  });
+		await expect(useCase.execute("user-1", "group-1", payload)).resolves.toEqual(
+			updatedGroup,
+		);
+		expect(repository.updateByIdAndOwner).toHaveBeenCalledWith(
+			"group-1",
+			"user-1",
+			payload,
+		);
+	});
 
 	it("throws BusinessException when the group is missing or not owned", async () => {
 		repository.updateByIdAndOwner.mockResolvedValue(null);
 
 		await expect(
-			useCase.execute("missing-group", { name: "Updated name" }),
+			useCase.execute("user-1", "missing-group", { name: "Updated name" }),
 		).rejects.toMatchObject({
 			code: "GROUP_NOT_FOUND",
 			message: "Group not found.",
@@ -78,7 +78,7 @@ describe("UpdateGroupUseCase", () => {
 			type: "business",
 		});
 		await expect(
-			useCase.execute("missing-group", { name: "Updated name" }),
+			useCase.execute("user-1", "missing-group", { name: "Updated name" }),
 		).rejects.toBeInstanceOf(BusinessException);
 	});
 });

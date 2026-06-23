@@ -14,9 +14,9 @@ describe("GetGroupDetailUseCase", () => {
 	const members: GroupMemberEntity[] = [
 		new GroupMemberEntity({
 			id: "member-1",
-			displayName: "Development User",
-			email: "dev@cuentasclaras.local",
-			userId: "00000000-0000-0000-0000-000000000001",
+			displayName: "Test User",
+			email: "test@example.com",
+			userId: "user-1",
 			removedAt: null,
 		}),
 	];
@@ -49,26 +49,26 @@ describe("GetGroupDetailUseCase", () => {
     useCase = module.get(GetGroupDetailUseCase);
   });
 
-  it("returns the group detail for the dev user", async () => {
+	it("returns the group detail for the authenticated user", async () => {
     repository.findDetailByIdAndOwner.mockResolvedValue(groupDetail);
 
-    await expect(useCase.execute("group-1")).resolves.toEqual(groupDetail);
-    expect(repository.findDetailByIdAndOwner).toHaveBeenCalledWith(
-      "group-1",
-      "00000000-0000-0000-0000-000000000001",
-    );
-  });
+		await expect(useCase.execute("user-1", "group-1")).resolves.toEqual(groupDetail);
+		expect(repository.findDetailByIdAndOwner).toHaveBeenCalledWith(
+			"group-1",
+			"user-1",
+		);
+	});
 
 	it("throws BusinessException when the group is missing or not owned", async () => {
 		repository.findDetailByIdAndOwner.mockResolvedValue(null);
 
-		await expect(useCase.execute("missing-group")).rejects.toMatchObject({
+		await expect(useCase.execute("user-1", "missing-group")).rejects.toMatchObject({
 			code: "GROUP_NOT_FOUND",
 			message: "Group not found.",
 			statusCode: 404,
 			type: "business",
 		});
-		await expect(useCase.execute("missing-group")).rejects.toBeInstanceOf(
+		await expect(useCase.execute("user-1", "missing-group")).rejects.toBeInstanceOf(
 			BusinessException,
 		);
 	});

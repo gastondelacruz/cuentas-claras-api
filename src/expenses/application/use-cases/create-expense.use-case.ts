@@ -22,10 +22,11 @@ export type CreateExpenseInput = {
 export class CreateExpenseUseCase {
 	constructor(private readonly expenseRepository: ExpenseRepository) {}
 
-	async execute(input: CreateExpenseInput): Promise<ExpenseEntity> {
-		const members = await this.expenseRepository.findActiveGroupMembers(
-			input.groupId,
-		);
+	async execute(userId: string, input: CreateExpenseInput): Promise<ExpenseEntity> {
+		const members = await this.expenseRepository.findActiveGroupMembersForUser({
+			groupId: input.groupId,
+			userId,
+		});
 
 		if (members === null) {
 			throw new BusinessException("GROUP_NOT_FOUND", "Group not found.", 404);

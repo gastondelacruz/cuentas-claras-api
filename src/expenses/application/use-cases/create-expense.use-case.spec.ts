@@ -10,6 +10,7 @@ describe("CreateExpenseUseCase", () => {
 	let useCase: CreateExpenseUseCase;
 	let repository: {
 		findActiveGroupMembers: ReturnType<typeof vi.fn>;
+		findActiveGroupMembersForUser: ReturnType<typeof vi.fn>;
 		create: ReturnType<typeof vi.fn>;
 	};
 
@@ -29,6 +30,7 @@ describe("CreateExpenseUseCase", () => {
 	beforeEach(async () => {
 		repository = {
 			findActiveGroupMembers: vi.fn(),
+			findActiveGroupMembersForUser: vi.fn(),
 			create: vi.fn(),
 		};
 
@@ -46,9 +48,9 @@ describe("CreateExpenseUseCase", () => {
 	});
 
 	it("throws GROUP_NOT_FOUND when the group does not exist", async () => {
-		repository.findActiveGroupMembers.mockResolvedValue(null);
+		repository.findActiveGroupMembersForUser.mockResolvedValue(null);
 
-		await expect(useCase.execute(baseInput)).rejects.toMatchObject({
+		await expect(useCase.execute("user-1", baseInput)).rejects.toMatchObject({
 			code: "GROUP_NOT_FOUND",
 			statusCode: 404,
 		});
@@ -56,11 +58,11 @@ describe("CreateExpenseUseCase", () => {
 	});
 
 	it("throws EXPENSE_PAYER_NOT_IN_GROUP when the payer is not an active member", async () => {
-		repository.findActiveGroupMembers.mockResolvedValue([
+		repository.findActiveGroupMembersForUser.mockResolvedValue([
 			{ id: "member-b", displayName: "Ana" },
 		]);
 
-		await expect(useCase.execute(baseInput)).rejects.toMatchObject({
+		await expect(useCase.execute("user-1", baseInput)).rejects.toMatchObject({
 			code: "EXPENSE_PAYER_NOT_IN_GROUP",
 			statusCode: 400,
 		});
@@ -68,11 +70,11 @@ describe("CreateExpenseUseCase", () => {
 	});
 
 	it("throws EXPENSE_PARTICIPANT_NOT_IN_GROUP when a participant is not an active member", async () => {
-		repository.findActiveGroupMembers.mockResolvedValue([
+		repository.findActiveGroupMembersForUser.mockResolvedValue([
 			{ id: "member-a", displayName: "Gaston" },
 		]);
 
-		await expect(useCase.execute(baseInput)).rejects.toMatchObject({
+		await expect(useCase.execute("user-1", baseInput)).rejects.toMatchObject({
 			code: "EXPENSE_PARTICIPANT_NOT_IN_GROUP",
 			statusCode: 400,
 		});
@@ -80,13 +82,13 @@ describe("CreateExpenseUseCase", () => {
 	});
 
 	it("throws EXPENSE_PAYER_NOT_PARTICIPANT when the payer is not part of the participants", async () => {
-		repository.findActiveGroupMembers.mockResolvedValue([
+		repository.findActiveGroupMembersForUser.mockResolvedValue([
 			{ id: "member-a", displayName: "Gaston" },
 			{ id: "member-b", displayName: "Ana" },
 		]);
 
 		await expect(
-			useCase.execute({
+			useCase.execute("user-1", {
 				...baseInput,
 				paidByMemberId: "member-a",
 				participantMemberIds: ["member-b"],
@@ -99,7 +101,7 @@ describe("CreateExpenseUseCase", () => {
 	});
 
 	it("builds the expense with an equal split and delegates persistence to the repository", async () => {
-		repository.findActiveGroupMembers.mockResolvedValue([
+		repository.findActiveGroupMembersForUser.mockResolvedValue([
 			{ id: "member-a", displayName: "Gaston" },
 			{ id: "member-b", displayName: "Ana" },
 		]);
@@ -107,7 +109,12 @@ describe("CreateExpenseUseCase", () => {
 			(expense: ExpenseEntity) => Promise.resolve(expense),
 		);
 
-		const result = await useCase.execute(baseInput);
+		const result = await useCase.execute("user-1", baseInput);
+
+		expect(repository.findActiveGroupMembersForUser).toHaveBeenCalledWith({
+			groupId: "group-1",
+			userId: "user-1",
+		});
 
 		expect(repository.create).toHaveBeenCalledTimes(1);
 		const persisted = repository.create.mock.calls[0][0] as ExpenseEntity;

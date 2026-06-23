@@ -1,5 +1,4 @@
 import { Injectable } from "@nestjs/common";
-import { DEV_USER_ID } from "../../../shared/constants/dev-user";
 import {
 	MeSummaryRepository,
 	type MeSummary,
@@ -13,9 +12,9 @@ import {
 export class GetMeSummaryUseCase {
 	constructor(private readonly meSummaryRepository: MeSummaryRepository) {}
 
-	async execute(): Promise<MeSummary> {
+	async execute(userId: string): Promise<MeSummary> {
 		const rawInputs =
-			await this.meSummaryRepository.getRawSummaryInputsForUser(DEV_USER_ID);
+			await this.meSummaryRepository.getRawSummaryInputsForUser(userId);
 
 		const totalsByCurrency = calculateMeSummaryTotals({
 			paidExpenses: rawInputs.paidExpenses,
