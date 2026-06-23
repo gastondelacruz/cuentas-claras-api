@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { JwtModule } from "@nestjs/jwt";
 import authConfig from "../config/auth.config";
+import { LoginUseCase } from "./application/use-cases/login.use-case";
 import { RegisterUseCase } from "./application/use-cases/register.use-case";
 import { AuthUserRepository } from "./domain/ports/auth-user.repository";
 import { PasswordHasher } from "./domain/ports/password-hasher";
@@ -18,6 +19,7 @@ import { JwtTokenService } from "./infrastructure/security/jwt-token.service";
 	controllers: [AuthController],
 	providers: [
 		RegisterUseCase,
+		LoginUseCase,
 		Argon2PasswordHasher,
 		JwtTokenService,
 		PrismaAuthUserRepository,

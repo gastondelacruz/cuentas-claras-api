@@ -3,6 +3,7 @@ import { PrismaService } from "../../../prisma/prisma.service";
 import { DatabaseException } from "../../../shared/exceptions/database.exception";
 import {
 	AuthUserRepository,
+	type AuthLoginUser,
 	type AuthUser,
 	type CreateUserWithPasswordInput,
 } from "../../domain/ports/auth-user.repository";
@@ -23,6 +24,20 @@ export class PrismaAuthUserRepository extends AuthUserRepository {
 					id: true,
 					name: true,
 					email: true,
+				},
+			}),
+		);
+	}
+
+	findByEmailForLogin(email: string): Promise<AuthLoginUser | null> {
+		return this.runDatabaseOperation("AUTH_USER_FIND_DATABASE_ERROR", () =>
+			this.prisma.user.findUnique({
+				where: { email },
+				select: {
+					id: true,
+					name: true,
+					email: true,
+					passwordHash: true,
 				},
 			}),
 		);

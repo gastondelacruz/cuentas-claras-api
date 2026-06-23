@@ -4,6 +4,8 @@ export type AuthUser = {
 	email: string;
 };
 
+export type AuthLoginUser = AuthUser & { passwordHash: string | null };
+
 export type CreateUserWithPasswordInput = {
 	name: string;
 	email: string;
@@ -12,6 +14,7 @@ export type CreateUserWithPasswordInput = {
 
 export abstract class AuthUserRepository {
 	abstract findByEmail(email: string): Promise<AuthUser | null>;
+	abstract findByEmailForLogin(email: string): Promise<AuthLoginUser | null>;
 	abstract createWithPassword(
 		input: CreateUserWithPasswordInput,
 	): Promise<AuthUser>;

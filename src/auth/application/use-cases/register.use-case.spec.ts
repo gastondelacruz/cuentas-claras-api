@@ -126,7 +126,7 @@ describe("RegisterUseCase", () => {
 				email: "taken@example.com",
 				password: "SecureP4ss!",
 			}),
-		).rejects.toMatchObject<Partial<BusinessException>>({
+		).rejects.toMatchObject({
 			code: "EMAIL_ALREADY_EXISTS",
 			message: "Email already registered.",
 			statusCode: 409,
