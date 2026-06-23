@@ -13,6 +13,159 @@ import { AppModule } from "../src/app.module";
 import { HttpExceptionFilter } from "../src/shared/filters/http-exception.filter";
 import { ResponseInterceptor } from "../src/shared/interceptors/response.interceptor";
 
+describe("Auth login endpoint (e2e)", () => {
+	let app: INestApplication;
+	let postgresContainer: StartedPostgreSqlContainer;
+	let prisma: PrismaClient;
+
+	beforeAll(async () => {
+		postgresContainer = await new PostgreSqlContainer("postgres:17-alpine")
+			.withDatabase("cuentas_claras_test")
+			.withUsername("postgres")
+			.withPassword("postgres")
+			.start();
+
+		process.env.DATABASE_URL = postgresContainer.getConnectionUri();
+		process.env.NODE_ENV = "test";
+		process.env.JWT_ACCESS_SECRET = "test-access-secret-with-at-least-32-chars";
+		process.env.JWT_REFRESH_SECRET =
+			"test-refresh-secret-with-at-least-32-chars";
+		process.env.JWT_ACCESS_TTL = "15m";
+		process.env.JWT_REFRESH_TTL = "30d";
+
+		execSync("npx prisma db push", {
+			cwd: process.cwd(),
+			env: process.env,
+			stdio: "inherit",
+		});
+
+		const adapter = new PrismaPg({
+			connectionString: process.env.DATABASE_URL,
+		});
+		prisma = new PrismaClient({ adapter });
+		await prisma.$connect();
+
+		const moduleFixture: TestingModule = await Test.createTestingModule({
+			imports: [AppModule],
+		}).compile();
+
+		app = moduleFixture.createNestApplication();
+		app.useGlobalPipes(
+			new ValidationPipe({
+				whitelist: true,
+				transform: true,
+			}),
+		);
+		app.useGlobalFilters(new HttpExceptionFilter());
+		app.useGlobalInterceptors(new ResponseInterceptor());
+
+		await app.init();
+	});
+
+	afterAll(async () => {
+		if (app) {
+			await app.close();
+		}
+
+		if (prisma) {
+			await prisma.$disconnect();
+		}
+
+		if (postgresContainer) {
+			await postgresContainer.stop();
+		}
+	});
+
+	beforeEach(async () => {
+		await prisma.refreshToken.deleteMany();
+		await prisma.user.deleteMany();
+	});
+
+	it("POST /api/v1/auth/login returns 200 with tokens and user after registration", async () => {
+		await request(app.getHttpServer())
+			.post("/api/v1/auth/register")
+			.send({ email: "login@example.com", password: "SecureP4ss!", name: "Jane" })
+			.expect(201);
+
+		const response = await request(app.getHttpServer())
+			.post("/api/v1/auth/login")
+			.send({ email: "login@example.com", password: "SecureP4ss!" })
+			.expect(200);
+
+		expect(response.body).toEqual({
+			data: {
+				accessToken: expect.any(String),
+				refreshToken: expect.any(String),
+				user: {
+					id: expect.any(String),
+					name: "Jane",
+					email: "login@example.com",
+				},
+			},
+		});
+		expect(response.body.data.user.passwordHash).toBeUndefined();
+
+		const user = await prisma.user.findUniqueOrThrow({
+			where: { email: "login@example.com" },
+		});
+		const refreshTokenRows = await prisma.refreshToken.findMany({
+			where: { userId: user.id },
+		});
+		expect(refreshTokenRows).toHaveLength(2);
+
+		const loginRefreshToken = refreshTokenRows.find((row) =>
+			argon2.verify(row.tokenHash, response.body.data.refreshToken),
+		);
+		expect(loginRefreshToken).toBeDefined();
+	});
+
+	it("POST /api/v1/auth/login returns 401 INVALID_CREDENTIALS for wrong password", async () => {
+		await request(app.getHttpServer())
+			.post("/api/v1/auth/register")
+			.send({ email: "login@example.com", password: "SecureP4ss!", name: "Jane" })
+			.expect(201);
+
+		const response = await request(app.getHttpServer())
+			.post("/api/v1/auth/login")
+			.send({ email: "login@example.com", password: "WrongPass!" })
+			.expect(401);
+
+		expect(response.body.error).toMatchObject({
+			code: "INVALID_CREDENTIALS",
+			message: "Invalid credentials.",
+			type: "business",
+			statusCode: 401,
+		});
+	});
+
+	it("POST /api/v1/auth/login returns 401 INVALID_CREDENTIALS for nonexistent email", async () => {
+		const response = await request(app.getHttpServer())
+			.post("/api/v1/auth/login")
+			.send({ email: "nobody@example.com", password: "SecureP4ss!" })
+			.expect(401);
+
+		expect(response.body.error).toMatchObject({
+			code: "INVALID_CREDENTIALS",
+			message: "Invalid credentials.",
+			type: "business",
+			statusCode: 401,
+		});
+	});
+
+	it("POST /api/v1/auth/login returns 400 for invalid payloads", async () => {
+		for (const payload of [
+			{ email: "not-an-email", password: "SecureP4ss!" },
+			{ email: "a@b.com" },
+			{ password: "SecureP4ss!" },
+		]) {
+			await request(app.getHttpServer())
+				.post("/api/v1/auth/login")
+				.send(payload)
+				.expect(400);
+		}
+	});
+});
+
 describe("Auth registration endpoint (e2e)", () => {
 	let app: INestApplication;
 	let postgresContainer: StartedPostgreSqlContainer;
