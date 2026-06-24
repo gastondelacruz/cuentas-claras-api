@@ -6,6 +6,7 @@ import {
 } from "../../domain/ports/auth-user.repository";
 import { PasswordHasher } from "../../domain/ports/password-hasher";
 import { RefreshTokenRepository } from "../../domain/ports/refresh-token.repository";
+import { TokenDigestService } from "../../domain/ports/token-digest.service";
 import { TokenService } from "../../domain/ports/token.service";
 
 export type LoginInput = {
@@ -26,6 +27,7 @@ export class LoginUseCase {
 		private readonly passwordHasher: PasswordHasher,
 		private readonly tokens: TokenService,
 		private readonly refreshTokens: RefreshTokenRepository,
+		private readonly tokenDigest: TokenDigestService,
 	) {}
 
 	async execute(input: LoginInput): Promise<LoginResult> {
@@ -56,10 +58,12 @@ export class LoginUseCase {
 		});
 		const refresh = await this.tokens.signRefreshToken({ sub: user.id });
 		const refreshTokenHash = await this.passwordHasher.hash(refresh.token);
+		const refreshTokenDigest = this.tokenDigest.digest(refresh.token);
 
 		await this.refreshTokens.save({
 			userId: user.id,
 			tokenHash: refreshTokenHash,
+			tokenDigest: refreshTokenDigest,
 			expiresAt: refresh.expiresAt,
 		});
 

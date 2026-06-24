@@ -3,6 +3,7 @@ import { BusinessException } from "../../../shared/exceptions/business.exception
 import { AuthUserRepository } from "../../domain/ports/auth-user.repository";
 import { PasswordHasher } from "../../domain/ports/password-hasher";
 import { RefreshTokenRepository } from "../../domain/ports/refresh-token.repository";
+import { TokenDigestService } from "../../domain/ports/token-digest.service";
 import { TokenService } from "../../domain/ports/token.service";
 
 export type RefreshInput = {
@@ -21,6 +22,7 @@ export class RefreshTokenUseCase {
 		private readonly refreshTokenRepository: RefreshTokenRepository,
 		private readonly users: AuthUserRepository,
 		private readonly passwordHasher: PasswordHasher,
+		private readonly tokenDigest: TokenDigestService,
 	) {}
 
 	async execute(input: RefreshInput): Promise<RefreshResult> {
@@ -70,9 +72,11 @@ export class RefreshTokenUseCase {
 		const newRefresh = await this.tokens.signRefreshToken({ sub: user!.id });
 
 		const newHash = await this.passwordHasher.hash(newRefresh.token);
+		const newDigest = this.tokenDigest.digest(newRefresh.token);
 		await this.refreshTokenRepository.save({
 			userId: user!.id,
 			tokenHash: newHash,
+			tokenDigest: newDigest,
 			expiresAt: newRefresh.expiresAt,
 		});
 

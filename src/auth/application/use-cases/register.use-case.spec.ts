@@ -3,6 +3,7 @@ import { BusinessException } from "../../../shared/exceptions/business.exception
 import { AuthUserRepository } from "../../domain/ports/auth-user.repository";
 import { PasswordHasher } from "../../domain/ports/password-hasher";
 import { RefreshTokenRepository } from "../../domain/ports/refresh-token.repository";
+import { TokenDigestService } from "../../domain/ports/token-digest.service";
 import { TokenService } from "../../domain/ports/token.service";
 import { RegisterUseCase } from "./register.use-case";
 
@@ -23,6 +24,9 @@ describe("RegisterUseCase", () => {
 	let refreshTokens: {
 		save: ReturnType<typeof vi.fn>;
 	};
+	let tokenDigestService: {
+		digest: ReturnType<typeof vi.fn>;
+	};
 
 	beforeEach(async () => {
 		users = {
@@ -40,6 +44,9 @@ describe("RegisterUseCase", () => {
 		refreshTokens = {
 			save: vi.fn(),
 		};
+		tokenDigestService = {
+			digest: vi.fn().mockReturnValue("computed-token-digest"),
+		};
 
 		const module: TestingModule = await Test.createTestingModule({
 			providers: [
@@ -48,6 +55,7 @@ describe("RegisterUseCase", () => {
 				{ provide: PasswordHasher, useValue: passwordHasher },
 				{ provide: TokenService, useValue: tokens },
 				{ provide: RefreshTokenRepository, useValue: refreshTokens },
+				{ provide: TokenDigestService, useValue: tokenDigestService },
 			],
 		}).compile();
 
@@ -100,9 +108,11 @@ describe("RegisterUseCase", () => {
 			sub: createdUser.id,
 		});
 		expect(passwordHasher.hash).toHaveBeenNthCalledWith(2, "refresh-token");
+		expect(tokenDigestService.digest).toHaveBeenCalledWith("refresh-token");
 		expect(refreshTokens.save).toHaveBeenCalledWith({
 			userId: createdUser.id,
 			tokenHash: "hashed-refresh-token",
+			tokenDigest: "computed-token-digest",
 			expiresAt,
 		});
 		expect(users.createWithPassword.mock.calls[0][0].passwordHash).not.toBe(

@@ -9,11 +9,13 @@ import { RegisterUseCase } from "./application/use-cases/register.use-case";
 import { AuthUserRepository } from "./domain/ports/auth-user.repository";
 import { PasswordHasher } from "./domain/ports/password-hasher";
 import { RefreshTokenRepository } from "./domain/ports/refresh-token.repository";
+import { TokenDigestService } from "./domain/ports/token-digest.service";
 import { TokenService } from "./domain/ports/token.service";
 import { AuthController } from "./infrastructure/http/auth.controller";
 import { PrismaAuthUserRepository } from "./infrastructure/persistence/prisma-auth-user.repository";
 import { PrismaRefreshTokenRepository } from "./infrastructure/persistence/prisma-refresh-token.repository";
 import { Argon2PasswordHasher } from "./infrastructure/security/argon2-password-hasher";
+import { HmacTokenDigestService } from "./infrastructure/security/hmac-token-digest.service";
 import { JwtStrategy } from "./infrastructure/security/jwt.strategy";
 import { JwtTokenService } from "./infrastructure/security/jwt-token.service";
 
@@ -31,6 +33,7 @@ import { JwtTokenService } from "./infrastructure/security/jwt-token.service";
 		Argon2PasswordHasher,
 		JwtTokenService,
 		JwtStrategy,
+		HmacTokenDigestService,
 		PrismaAuthUserRepository,
 		PrismaRefreshTokenRepository,
 		{
@@ -40,6 +43,10 @@ import { JwtTokenService } from "./infrastructure/security/jwt-token.service";
 		{
 			provide: TokenService,
 			useExisting: JwtTokenService,
+		},
+		{
+			provide: TokenDigestService,
+			useExisting: HmacTokenDigestService,
 		},
 		{
 			provide: AuthUserRepository,

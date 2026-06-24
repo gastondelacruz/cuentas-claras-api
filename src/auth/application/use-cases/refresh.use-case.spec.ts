@@ -3,6 +3,7 @@ import { BusinessException } from "../../../shared/exceptions/business.exception
 import { AuthUserRepository } from "../../domain/ports/auth-user.repository";
 import { PasswordHasher } from "../../domain/ports/password-hasher";
 import { RefreshTokenRepository } from "../../domain/ports/refresh-token.repository";
+import { TokenDigestService } from "../../domain/ports/token-digest.service";
 import { TokenService } from "../../domain/ports/token.service";
 import { RefreshTokenUseCase } from "./refresh.use-case";
 
@@ -29,6 +30,9 @@ describe("RefreshTokenUseCase", () => {
 		hash: ReturnType<typeof vi.fn>;
 		verify: ReturnType<typeof vi.fn>;
 	};
+	let tokenDigestService: {
+		digest: ReturnType<typeof vi.fn>;
+	};
 
 	beforeEach(async () => {
 		tokens = {
@@ -52,6 +56,9 @@ describe("RefreshTokenUseCase", () => {
 			hash: vi.fn(),
 			verify: vi.fn(),
 		};
+		tokenDigestService = {
+			digest: vi.fn().mockReturnValue("new-token-digest"),
+		};
 
 		const module: TestingModule = await Test.createTestingModule({
 			providers: [
@@ -60,6 +67,7 @@ describe("RefreshTokenUseCase", () => {
 				{ provide: RefreshTokenRepository, useValue: refreshTokens },
 				{ provide: AuthUserRepository, useValue: users },
 				{ provide: PasswordHasher, useValue: passwordHasher },
+				{ provide: TokenDigestService, useValue: tokenDigestService },
 			],
 		}).compile();
 
@@ -75,6 +83,7 @@ describe("RefreshTokenUseCase", () => {
 			id: "aaaaaaaa-0000-0000-0000-000000000001",
 			userId,
 			tokenHash: "hashed-old-token",
+			tokenDigest: "old-token-digest",
 			expiresAt,
 			revokedAt: null,
 		};
@@ -106,9 +115,11 @@ describe("RefreshTokenUseCase", () => {
 		expect(tokens.signAccessToken).toHaveBeenCalledWith({ sub: userId, email });
 		expect(tokens.signRefreshToken).toHaveBeenCalledWith({ sub: userId });
 		expect(passwordHasher.hash).toHaveBeenCalledWith("new-refresh-token");
+		expect(tokenDigestService.digest).toHaveBeenCalledWith("new-refresh-token");
 		expect(refreshTokens.save).toHaveBeenCalledWith({
 			userId,
 			tokenHash: "hashed-new-token",
+			tokenDigest: "new-token-digest",
 			expiresAt,
 		});
 		expect(refreshTokens.revokeAllByUserId).not.toHaveBeenCalled();
@@ -121,6 +132,7 @@ describe("RefreshTokenUseCase", () => {
 			id: "bbbbbbbb-0000-0000-0000-000000000002",
 			userId,
 			tokenHash: "different-hash",
+			tokenDigest: "some-digest",
 			expiresAt: new Date("2026-08-01T00:00:00.000Z"),
 			revokedAt: null,
 		};
