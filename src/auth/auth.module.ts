@@ -4,6 +4,7 @@ import { JwtModule } from "@nestjs/jwt";
 import { PassportModule } from "@nestjs/passport";
 import authConfig from "../config/auth.config";
 import { LoginUseCase } from "./application/use-cases/login.use-case";
+import { LogoutUseCase } from "./application/use-cases/logout.use-case";
 import { RefreshTokenUseCase } from "./application/use-cases/refresh.use-case";
 import { RegisterUseCase } from "./application/use-cases/register.use-case";
 import { AuthUserRepository } from "./domain/ports/auth-user.repository";
@@ -30,6 +31,7 @@ import { JwtTokenService } from "./infrastructure/security/jwt-token.service";
 		RegisterUseCase,
 		LoginUseCase,
 		RefreshTokenUseCase,
+		LogoutUseCase,
 		Argon2PasswordHasher,
 		JwtTokenService,
 		JwtStrategy,
