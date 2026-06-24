@@ -6,7 +6,10 @@ import type {
 	RegisterInput,
 	RegisterResult,
 } from "../../../application/use-cases/register.use-case";
+import type { RefreshInput, RefreshResult } from "../../../application/use-cases/refresh.use-case";
 import { LoginRequestDto } from "../dto/login-request.dto";
+import { RefreshRequestDto } from "../dto/refresh-request.dto";
+import { RefreshResponseDto } from "../dto/refresh-response.dto";
 import { RegisterRequestDto } from "../dto/register-request.dto";
 import { RegisterResponseDto } from "../dto/register-response.dto";
 
@@ -47,6 +50,19 @@ export class AuthMapper {
 				name: result.user.name,
 				email: result.user.email,
 			},
+		};
+	}
+
+	static toRefreshInput(dto: RefreshRequestDto): RefreshInput {
+		return {
+			refreshToken: dto.refreshToken,
+		};
+	}
+
+	static toRefreshResponseDto(result: RefreshResult): RefreshResponseDto {
+		return {
+			accessToken: result.accessToken,
+			refreshToken: result.refreshToken,
 		};
 	}
 }

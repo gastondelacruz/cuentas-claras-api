@@ -17,4 +17,5 @@ export abstract class TokenService {
 	abstract signRefreshToken(
 		payload: RefreshTokenPayload,
 	): Promise<SignedRefreshToken>;
+	abstract verifyRefreshToken(token: string): Promise<RefreshTokenPayload>;
 }

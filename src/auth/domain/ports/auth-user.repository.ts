@@ -13,6 +13,7 @@ export type CreateUserWithPasswordInput = {
 };
 
 export abstract class AuthUserRepository {
+	abstract findById(id: string): Promise<AuthUser | null>;
 	abstract findByEmail(email: string): Promise<AuthUser | null>;
 	abstract findByEmailForLogin(email: string): Promise<AuthLoginUser | null>;
 	abstract createWithPassword(

@@ -166,6 +166,140 @@ describe("Auth login endpoint (e2e)", () => {
 	});
 });
 
+describe("Auth refresh token endpoint (e2e)", () => {
+	let app: INestApplication;
+	let postgresContainer: StartedPostgreSqlContainer;
+	let prisma: PrismaClient;
+
+	beforeAll(async () => {
+		postgresContainer = await new PostgreSqlContainer("postgres:17-alpine")
+			.withDatabase("cuentas_claras_test")
+			.withUsername("postgres")
+			.withPassword("postgres")
+			.start();
+
+		process.env.DATABASE_URL = postgresContainer.getConnectionUri();
+		process.env.NODE_ENV = "test";
+		process.env.JWT_ACCESS_SECRET = "test-access-secret-with-at-least-32-chars";
+		process.env.JWT_REFRESH_SECRET = "test-refresh-secret-with-at-least-32-chars";
+		process.env.JWT_ACCESS_TTL = "15m";
+		process.env.JWT_REFRESH_TTL = "30d";
+
+		execSync("npx prisma db push", {
+			cwd: process.cwd(),
+			env: process.env,
+			stdio: "inherit",
+		});
+
+		const adapter = new PrismaPg({
+			connectionString: process.env.DATABASE_URL,
+		});
+		prisma = new PrismaClient({ adapter });
+		await prisma.$connect();
+
+		const moduleFixture: TestingModule = await Test.createTestingModule({
+			imports: [AppModule],
+		}).compile();
+
+		app = moduleFixture.createNestApplication();
+		app.useGlobalPipes(
+			new ValidationPipe({
+				whitelist: true,
+				transform: true,
+			}),
+		);
+		app.useGlobalFilters(new HttpExceptionFilter());
+		app.useGlobalInterceptors(new ResponseInterceptor());
+
+		await app.init();
+	});
+
+	afterAll(async () => {
+		if (app) {
+			await app.close();
+		}
+
+		if (prisma) {
+			await prisma.$disconnect();
+		}
+
+		if (postgresContainer) {
+			await postgresContainer.stop();
+		}
+	});
+
+	beforeEach(async () => {
+		await prisma.refreshToken.deleteMany();
+		await prisma.user.deleteMany();
+	});
+
+	it("POST /api/v1/auth/refresh returns 200 with a new token pair; old token is revoked", async () => {
+		// Register and login to get initial refresh token
+		await request(app.getHttpServer())
+			.post("/api/v1/auth/login")
+			.send({ email: "refresh@example.com", password: "SecureP4ss!" })
+			.expect(401); // user does not exist yet
+
+		await request(app.getHttpServer())
+			.post("/api/v1/auth/register")
+			.send({ email: "refresh@example.com", password: "SecureP4ss!", name: "Refresh User" })
+			.expect(201);
+
+		const loginRes = await request(app.getHttpServer())
+			.post("/api/v1/auth/login")
+			.send({ email: "refresh@example.com", password: "SecureP4ss!" })
+			.expect(200);
+
+		const originalRefreshToken: string = loginRes.body.data.refreshToken;
+
+		// Refresh using the original token
+		const refreshRes = await request(app.getHttpServer())
+			.post("/api/v1/auth/refresh")
+			.send({ refreshToken: originalRefreshToken })
+			.expect(200);
+
+		expect(refreshRes.body).toEqual({
+			data: {
+				accessToken: expect.any(String),
+				refreshToken: expect.any(String),
+			},
+		});
+		expect(refreshRes.body.data.user).toBeUndefined();
+
+		// Verify the new access token works on a protected route
+		await request(app.getHttpServer())
+			.get("/api/v1/me/summary")
+			.set("Authorization", `Bearer ${refreshRes.body.data.accessToken}`)
+			.expect(200);
+
+		// Old refresh token must be rejected
+		await request(app.getHttpServer())
+			.post("/api/v1/auth/refresh")
+			.send({ refreshToken: originalRefreshToken })
+			.expect(401);
+	});
+
+	it("POST /api/v1/auth/refresh returns 401 INVALID_REFRESH_TOKEN for a tampered token", async () => {
+		const response = await request(app.getHttpServer())
+			.post("/api/v1/auth/refresh")
+			.send({ refreshToken: "invalid.tampered.token" })
+			.expect(401);
+
+		expect(response.body.error).toMatchObject({
+			code: "INVALID_REFRESH_TOKEN",
+			type: "business",
+			statusCode: 401,
+		});
+	});
+
+	it("POST /api/v1/auth/refresh returns 400 for missing refreshToken field", async () => {
+		await request(app.getHttpServer())
+			.post("/api/v1/auth/refresh")
+			.send({})
+			.expect(400);
+	});
+});
+
 describe("Auth registration endpoint (e2e)", () => {
 	let app: INestApplication;
 	let postgresContainer: StartedPostgreSqlContainer;
