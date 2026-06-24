@@ -300,6 +300,162 @@ describe("Auth refresh token endpoint (e2e)", () => {
 	});
 });
 
+describe("POST /api/v1/auth/logout (e2e)", () => {
+	let app: INestApplication;
+	let postgresContainer: StartedPostgreSqlContainer;
+	let prisma: PrismaClient;
+
+	beforeAll(async () => {
+		postgresContainer = await new PostgreSqlContainer("postgres:17-alpine")
+			.withDatabase("cuentas_claras_test")
+			.withUsername("postgres")
+			.withPassword("postgres")
+			.start();
+
+		process.env.DATABASE_URL = postgresContainer.getConnectionUri();
+		process.env.NODE_ENV = "test";
+		process.env.JWT_ACCESS_SECRET = "test-access-secret-with-at-least-32-chars";
+		process.env.JWT_REFRESH_SECRET =
+			"test-refresh-secret-with-at-least-32-chars";
+		process.env.JWT_ACCESS_TTL = "15m";
+		process.env.JWT_REFRESH_TTL = "30d";
+
+		execSync("npx prisma db push", {
+			cwd: process.cwd(),
+			env: process.env,
+			stdio: "inherit",
+		});
+
+		const adapter = new PrismaPg({
+			connectionString: process.env.DATABASE_URL,
+		});
+		prisma = new PrismaClient({ adapter });
+		await prisma.$connect();
+
+		const moduleFixture: TestingModule = await Test.createTestingModule({
+			imports: [AppModule],
+		}).compile();
+
+		app = moduleFixture.createNestApplication();
+		app.useGlobalPipes(
+			new ValidationPipe({
+				whitelist: true,
+				transform: true,
+			}),
+		);
+		app.useGlobalFilters(new HttpExceptionFilter());
+		app.useGlobalInterceptors(new ResponseInterceptor());
+
+		await app.init();
+	});
+
+	afterAll(async () => {
+		if (app) {
+			await app.close();
+		}
+		if (prisma) {
+			await prisma.$disconnect();
+		}
+		if (postgresContainer) {
+			await postgresContainer.stop();
+		}
+	});
+
+	beforeEach(async () => {
+		await prisma.refreshToken.deleteMany();
+		await prisma.user.deleteMany();
+	});
+
+	it("returns 204 and revokes the refresh token (happy path)", async () => {
+		const registerRes = await request(app.getHttpServer())
+			.post("/api/v1/auth/register")
+			.send({ email: "logout@example.com", password: "SecureP4ss!", name: "Logout User" })
+			.expect(201);
+
+		const { accessToken, refreshToken } = registerRes.body.data;
+
+		await request(app.getHttpServer())
+			.post("/api/v1/auth/logout")
+			.set("Authorization", `Bearer ${accessToken}`)
+			.send({ refreshToken })
+			.expect(204);
+	});
+
+	it("returns 401 when no Bearer token is provided", async () => {
+		await request(app.getHttpServer())
+			.post("/api/v1/auth/logout")
+			.send({ refreshToken: "some-token" })
+			.expect(401);
+	});
+
+	it("returns 400 when refreshToken field is missing", async () => {
+		const registerRes = await request(app.getHttpServer())
+			.post("/api/v1/auth/register")
+			.send({ email: "logout-missing@example.com", password: "SecureP4ss!", name: "Logout User" })
+			.expect(201);
+
+		await request(app.getHttpServer())
+			.post("/api/v1/auth/logout")
+			.set("Authorization", `Bearer ${registerRes.body.data.accessToken}`)
+			.send({})
+			.expect(400);
+	});
+
+	it("returns 204 for unknown refresh token (idempotent)", async () => {
+		const registerRes = await request(app.getHttpServer())
+			.post("/api/v1/auth/register")
+			.send({ email: "logout-unk@example.com", password: "SecureP4ss!", name: "Logout User" })
+			.expect(201);
+
+		await request(app.getHttpServer())
+			.post("/api/v1/auth/logout")
+			.set("Authorization", `Bearer ${registerRes.body.data.accessToken}`)
+			.send({ refreshToken: "non-existent-token" })
+			.expect(204);
+	});
+
+	it("returns 204 a second time for the same revoked token (idempotent)", async () => {
+		const registerRes = await request(app.getHttpServer())
+			.post("/api/v1/auth/register")
+			.send({ email: "logout-idem@example.com", password: "SecureP4ss!", name: "Logout User" })
+			.expect(201);
+
+		const { accessToken, refreshToken } = registerRes.body.data;
+
+		await request(app.getHttpServer())
+			.post("/api/v1/auth/logout")
+			.set("Authorization", `Bearer ${accessToken}`)
+			.send({ refreshToken })
+			.expect(204);
+
+		await request(app.getHttpServer())
+			.post("/api/v1/auth/logout")
+			.set("Authorization", `Bearer ${accessToken}`)
+			.send({ refreshToken })
+			.expect(204);
+	});
+
+	it("POST /api/v1/auth/refresh returns 401 after the refresh token has been revoked via logout", async () => {
+		const registerRes = await request(app.getHttpServer())
+			.post("/api/v1/auth/register")
+			.send({ email: "logout-refresh@example.com", password: "SecureP4ss!", name: "Logout User" })
+			.expect(201);
+
+		const { accessToken, refreshToken } = registerRes.body.data;
+
+		await request(app.getHttpServer())
+			.post("/api/v1/auth/logout")
+			.set("Authorization", `Bearer ${accessToken}`)
+			.send({ refreshToken })
+			.expect(204);
+
+		await request(app.getHttpServer())
+			.post("/api/v1/auth/refresh")
+			.send({ refreshToken })
+			.expect(401);
+	});
+});
+
 describe("Auth registration endpoint (e2e)", () => {
 	let app: INestApplication;
 	let postgresContainer: StartedPostgreSqlContainer;
