@@ -3,6 +3,7 @@ import { BusinessException } from "../../../shared/exceptions/business.exception
 import { AuthUserRepository } from "../../domain/ports/auth-user.repository";
 import { PasswordHasher } from "../../domain/ports/password-hasher";
 import { RefreshTokenRepository } from "../../domain/ports/refresh-token.repository";
+import { TokenDigestService } from "../../domain/ports/token-digest.service";
 import { TokenService } from "../../domain/ports/token.service";
 import { LoginUseCase } from "./login.use-case";
 
@@ -24,6 +25,9 @@ describe("LoginUseCase", () => {
 	let refreshTokens: {
 		save: ReturnType<typeof vi.fn>;
 	};
+	let tokenDigestService: {
+		digest: ReturnType<typeof vi.fn>;
+	};
 
 	beforeEach(async () => {
 		users = {
@@ -42,6 +46,9 @@ describe("LoginUseCase", () => {
 		refreshTokens = {
 			save: vi.fn(),
 		};
+		tokenDigestService = {
+			digest: vi.fn().mockReturnValue("computed-token-digest"),
+		};
 
 		const module: TestingModule = await Test.createTestingModule({
 			providers: [
@@ -50,6 +57,7 @@ describe("LoginUseCase", () => {
 				{ provide: PasswordHasher, useValue: passwordHasher },
 				{ provide: TokenService, useValue: tokens },
 				{ provide: RefreshTokenRepository, useValue: refreshTokens },
+				{ provide: TokenDigestService, useValue: tokenDigestService },
 			],
 		}).compile();
 
@@ -101,9 +109,11 @@ describe("LoginUseCase", () => {
 		});
 		expect(tokens.signRefreshToken).toHaveBeenCalledWith({ sub: loginUser.id });
 		expect(passwordHasher.hash).toHaveBeenCalledWith("refresh-token");
+		expect(tokenDigestService.digest).toHaveBeenCalledWith("refresh-token");
 		expect(refreshTokens.save).toHaveBeenCalledWith({
 			userId: loginUser.id,
 			tokenHash: "hashed-refresh-token",
+			tokenDigest: "computed-token-digest",
 			expiresAt,
 		});
 	});

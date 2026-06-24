@@ -8,6 +8,7 @@ export type AuthConfig = {
 	jwtAccessTtl: TtlString;
 	jwtRefreshTtl: TtlString;
 	googleClientId?: string;
+	refreshTokenDigestSecret: string;
 };
 
 export default registerAs(
@@ -18,5 +19,6 @@ export default registerAs(
 		jwtAccessTtl: (process.env.JWT_ACCESS_TTL ?? "15m") as TtlString,
 		jwtRefreshTtl: (process.env.JWT_REFRESH_TTL ?? "30d") as TtlString,
 		googleClientId: process.env.GOOGLE_CLIENT_ID,
+		refreshTokenDigestSecret: process.env.REFRESH_TOKEN_DIGEST_SECRET!,
 	}),
 );

@@ -19,6 +19,7 @@ export class PrismaRefreshTokenRepository extends RefreshTokenRepository {
 				data: {
 					userId: input.userId,
 					tokenHash: input.tokenHash,
+					tokenDigest: input.tokenDigest,
 					expiresAt: input.expiresAt,
 				},
 			});
@@ -39,9 +40,27 @@ export class PrismaRefreshTokenRepository extends RefreshTokenRepository {
 				id: row.id,
 				userId: row.userId,
 				tokenHash: row.tokenHash,
+				tokenDigest: row.tokenDigest,
 				expiresAt: row.expiresAt,
 				revokedAt: row.revokedAt,
 			}));
+		});
+	}
+
+	async findByDigest(digest: string): Promise<RefreshToken | null> {
+		return this.runDatabaseOperation("REFRESH_TOKEN_FIND_DATABASE_ERROR", async () => {
+			const row = await this.prisma.refreshToken.findUnique({
+				where: { tokenDigest: digest },
+			});
+			if (!row) return null;
+			return {
+				id: row.id,
+				userId: row.userId,
+				tokenHash: row.tokenHash,
+				tokenDigest: row.tokenDigest,
+				expiresAt: row.expiresAt,
+				revokedAt: row.revokedAt,
+			};
 		});
 	}
 

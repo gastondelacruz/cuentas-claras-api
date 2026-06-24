@@ -29,4 +29,11 @@ export const envValidationSchema = Joi.object({
 		.pattern(/^\d+[smhd]$/)
 		.default("30d"),
 	GOOGLE_CLIENT_ID: Joi.string().allow("").optional(),
+	REFRESH_TOKEN_DIGEST_SECRET: Joi.when("NODE_ENV", {
+		is: "test",
+		then: Joi.string()
+			.min(32)
+			.default("test-digest-secret-with-at-least-32-chars"),
+		otherwise: Joi.string().min(32).required(),
+	}),
 });
