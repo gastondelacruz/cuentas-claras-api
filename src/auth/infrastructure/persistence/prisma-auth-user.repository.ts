@@ -14,6 +14,19 @@ export class PrismaAuthUserRepository extends AuthUserRepository {
 		super();
 	}
 
+	findById(id: string): Promise<AuthUser | null> {
+		return this.runDatabaseOperation("AUTH_USER_FIND_DATABASE_ERROR", () =>
+			this.prisma.user.findUnique({
+				where: { id },
+				select: {
+					id: true,
+					name: true,
+					email: true,
+				},
+			}),
+		);
+	}
+
 	findByEmail(email: string): Promise<AuthUser | null> {
 		return this.runDatabaseOperation("AUTH_USER_FIND_DATABASE_ERROR", () =>
 			this.prisma.user.findUnique({

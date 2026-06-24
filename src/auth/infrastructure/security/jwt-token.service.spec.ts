@@ -44,10 +44,31 @@ describe("JwtTokenService", () => {
 			sub: "11111111-1111-1111-1111-111111111111",
 		});
 
-		const decoded = jwtService.decode(refresh.token) as { exp: number; iat: number };
+		const decoded = jwtService.decode(refresh.token) as { exp: number; iat: number; sub: string; email?: string };
 		const expectedExpiresAt = new Date(issuedAt.getTime() + 30 * 24 * 60 * 60 * 1000);
 
+		expect(decoded.sub).toBe("11111111-1111-1111-1111-111111111111");
+		expect(decoded.email).toBeUndefined();
 		expect(decoded.exp - decoded.iat).toBe(30 * 24 * 60 * 60);
 		expect(refresh.expiresAt.getTime()).toBe(expectedExpiresAt.getTime());
+	});
+
+	it("signs distinct refresh tokens for the same payload within the same second", async () => {
+		const payload = {
+			sub: "11111111-1111-1111-1111-111111111111",
+		};
+
+		const first = await service.signRefreshToken(payload);
+		const second = await service.signRefreshToken(payload);
+
+		const firstDecoded = jwtService.decode(first.token) as { jti: string; sub: string };
+		const secondDecoded = jwtService.decode(second.token) as { jti: string; sub: string };
+
+		expect(first.token).not.toBe(second.token);
+		expect(firstDecoded.sub).toBe(payload.sub);
+		expect(secondDecoded.sub).toBe(payload.sub);
+		expect(firstDecoded.jti).toEqual(expect.any(String));
+		expect(secondDecoded.jti).toEqual(expect.any(String));
+		expect(firstDecoded.jti).not.toBe(secondDecoded.jti);
 	});
 });

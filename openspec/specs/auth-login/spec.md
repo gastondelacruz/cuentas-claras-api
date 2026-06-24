@@ -57,6 +57,8 @@ The system MUST hash the raw refresh token with `PasswordHasher.hash` and persis
 
 The system MUST create a new stored refresh token for every successful login and MUST NOT revoke previously issued refresh tokens.
 
+(Previously: Port contracts unchanged; this spec now reflects that `RefreshTokenRepository` and `TokenService` abstract classes include additional methods for refresh rotation, while login behavior itself remains unaffected.)
+
 #### Scenario: Login persists a new refresh token
 
 - GIVEN valid credentials for an existing user

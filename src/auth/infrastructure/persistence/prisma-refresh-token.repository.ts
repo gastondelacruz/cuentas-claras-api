@@ -3,6 +3,7 @@ import { PrismaService } from "../../../prisma/prisma.service";
 import { DatabaseException } from "../../../shared/exceptions/database.exception";
 import {
 	RefreshTokenRepository,
+	type RefreshToken,
 	type SaveRefreshTokenInput,
 } from "../../domain/ports/refresh-token.repository";
 
@@ -20,6 +21,44 @@ export class PrismaRefreshTokenRepository extends RefreshTokenRepository {
 					tokenHash: input.tokenHash,
 					expiresAt: input.expiresAt,
 				},
+			});
+		});
+	}
+
+	async findActiveByUserId(userId: string): Promise<RefreshToken[]> {
+		return this.runDatabaseOperation("REFRESH_TOKEN_FIND_DATABASE_ERROR", async () => {
+			const now = new Date();
+			const rows = await this.prisma.refreshToken.findMany({
+				where: {
+					userId,
+					revokedAt: null,
+					expiresAt: { gt: now },
+				},
+			});
+			return rows.map((row) => ({
+				id: row.id,
+				userId: row.userId,
+				tokenHash: row.tokenHash,
+				expiresAt: row.expiresAt,
+				revokedAt: row.revokedAt,
+			}));
+		});
+	}
+
+	async revoke(id: string): Promise<void> {
+		await this.runDatabaseOperation("REFRESH_TOKEN_REVOKE_DATABASE_ERROR", async () => {
+			await this.prisma.refreshToken.update({
+				where: { id },
+				data: { revokedAt: new Date() },
+			});
+		});
+	}
+
+	async revokeAllByUserId(userId: string): Promise<void> {
+		await this.runDatabaseOperation("REFRESH_TOKEN_REVOKE_ALL_DATABASE_ERROR", async () => {
+			await this.prisma.refreshToken.updateMany({
+				where: { userId, revokedAt: null },
+				data: { revokedAt: new Date() },
 			});
 		});
 	}
