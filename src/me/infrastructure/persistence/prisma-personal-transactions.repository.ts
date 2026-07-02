@@ -7,6 +7,8 @@ import {
 	PersonalTransactionsRepository,
 	type PersonalTransaction,
 	type PersonalTransactionFilters,
+	type PersonalTransactionsSummary,
+	type PersonalTransactionsSummaryFilters,
 } from "../../domain/ports/personal-transactions.repository";
 
 @Injectable()
@@ -102,6 +104,45 @@ export class PrismaPersonalTransactionsRepository extends PersonalTransactionsRe
 		);
 	}
 
+	async getSummary(
+		filters: PersonalTransactionsSummaryFilters,
+	): Promise<PersonalTransactionsSummary> {
+		return this.runDatabaseOperation(
+			"PERSONAL_TX_SUMMARY_DATABASE_ERROR",
+			async () => {
+				const rows = await this.prisma.personalTransaction.groupBy({
+					by: ["type", "category"],
+					_sum: {
+						amount: true,
+					},
+					where: buildSummaryWhere(filters),
+				});
+
+				const breakdown = rows
+					.map((row) => ({
+						category: row.category,
+						type: row.type,
+						amount: toNumber(row._sum.amount ?? 0),
+					}))
+					.sort((left, right) => {
+						const typeComparison = left.type.localeCompare(right.type);
+
+						if (typeComparison !== 0) {
+							return typeComparison;
+						}
+
+						return left.category.localeCompare(right.category);
+					});
+
+				return {
+					incomeTotal: sumByType(breakdown, "income"),
+					expenseTotal: sumByType(breakdown, "expense"),
+					breakdown,
+				};
+			},
+		);
+	}
+
 	private async runDatabaseOperation<T>(
 		code: string,
 		operation: () => Promise<T>,
@@ -116,6 +157,37 @@ export class PrismaPersonalTransactionsRepository extends PersonalTransactionsRe
 			throw new DatabaseException(code);
 		}
 	}
+}
+
+function buildSummaryWhere(filters: PersonalTransactionsSummaryFilters) {
+	return {
+		userId: filters.userId,
+		...(filters.dateFrom || filters.dateTo
+			? {
+					occurredAt: {
+						...(filters.dateFrom ? { gte: filters.dateFrom } : {}),
+						...(filters.dateTo ? { lt: filters.dateTo } : {}),
+					},
+				}
+			: {}),
+	};
+}
+
+function sumByType(
+	breakdown: PersonalTransactionsSummary["breakdown"],
+	type: string,
+): number {
+	return breakdown
+		.filter((item) => item.type === type)
+		.reduce((total, item) => total + toCents(item.amount), 0) / 100;
+}
+
+function toCents(amount: number): number {
+	return Math.round(amount * 100);
+}
+
+function toNumber(value: { toNumber: () => number } | number): number {
+	return typeof value === "number" ? value : value.toNumber();
 }
 
 function mapTransaction(

@@ -331,6 +331,143 @@ describe("Personal transactions endpoint (e2e)", () => {
 		expect(new Set(firstIds).size).toBe(2);
 	});
 
+	it("GET /api/v1/me/personal-transactions/summary returns global totals and category percentages", async () => {
+		await createTransaction({
+			type: "expense",
+			amount: 100,
+			category: "Food",
+			occurredAt: new Date("2026-06-10T10:00:00.000Z"),
+		});
+		await createTransaction({
+			type: "expense",
+			amount: 300,
+			category: "Transport",
+			occurredAt: new Date("2026-06-11T10:00:00.000Z"),
+		});
+		await createTransaction({
+			type: "income",
+			amount: 1000,
+			category: "Salary",
+			occurredAt: new Date("2026-06-12T10:00:00.000Z"),
+		});
+
+		const response = await request(app.getHttpServer())
+			.get("/api/v1/me/personal-transactions/summary")
+			.query({
+				range: "period",
+				from: "2026-06-01T00:00:00.000Z",
+				to: "2026-07-01T00:00:00.000Z",
+			})
+			.expect(200);
+
+		expect(response.body).toEqual({
+			data: {
+				total: 600,
+				incomeTotal: 1000,
+				expenseTotal: 400,
+				currency: "ARS",
+				breakdown: expect.arrayContaining([
+					{
+						category: "Salary",
+						type: "income",
+						amount: 1000,
+						percentage: 100,
+					},
+					{
+						category: "Food",
+						type: "expense",
+						amount: 100,
+						percentage: 25,
+					},
+					{
+						category: "Transport",
+						type: "expense",
+						amount: 300,
+						percentage: 75,
+					},
+				]),
+			},
+		});
+		expect(response.body.data.breakdown).toHaveLength(3);
+	});
+
+	it("GET /api/v1/me/personal-transactions/summary rejects invalid custom periods", async () => {
+		const missingTo = await request(app.getHttpServer())
+			.get("/api/v1/me/personal-transactions/summary")
+			.query({ range: "period", from: "2026-06-01T00:00:00.000Z" })
+			.expect(400);
+
+		expect(missingTo.body.error).toMatchObject({
+			code: "PERSONAL_TX_INVALID_PERIOD",
+			statusCode: 400,
+		});
+
+		const reversedRange = await request(app.getHttpServer())
+			.get("/api/v1/me/personal-transactions/summary")
+			.query({
+				range: "period",
+				from: "2026-07-01T00:00:00.000Z",
+				to: "2026-06-01T00:00:00.000Z",
+			})
+			.expect(400);
+
+		expect(reversedRange.body.error).toMatchObject({
+			code: "PERSONAL_TX_INVALID_PERIOD",
+			statusCode: 400,
+		});
+	});
+
+	it("GET /api/v1/me/personal-transactions/summary only summarizes the authenticated user's transactions", async () => {
+		await createTransaction({ type: "expense", amount: 100 });
+
+		const otherUser = await registerAndLogin(app);
+		const otherAccount = await prisma.account.findFirstOrThrow({
+			where: {
+				userId: otherUser.userId,
+				isDefault: true,
+				archivedAt: null,
+			},
+		});
+		await prisma.personalTransaction.create({
+			data: {
+				userId: otherUser.userId,
+				accountId: otherAccount.id,
+				type: "income",
+				amount: "999",
+				currency: "ARS",
+				category: "Salary",
+				occurredAt: new Date("2026-06-29T10:00:00.000Z"),
+			},
+		});
+
+		const response = await request(app.getHttpServer())
+			.get("/api/v1/me/personal-transactions/summary")
+			.set("Authorization", otherUser.authorization)
+			.query({ range: "year" })
+			.expect(200);
+
+		expect(response.body.data).toMatchObject({
+			total: 999,
+			incomeTotal: 999,
+			expenseTotal: 0,
+		});
+		expect(response.body.data.breakdown).toEqual([
+			{
+				category: "Salary",
+				type: "income",
+				amount: 999,
+				percentage: 100,
+			},
+		]);
+	});
+
+	it("GET /api/v1/me/personal-transactions/summary returns 401 without a valid JWT", async () => {
+		await request(app.getHttpServer())
+			.get("/api/v1/me/personal-transactions/summary")
+			.set("x-skip-test-auth", "1")
+			.expect(401);
+	});
+
 	it("POST /api/v1/me/personal-transactions creates a transaction using the default account", async () => {
 		const response = await request(app.getHttpServer())
 			.post("/api/v1/me/personal-transactions")

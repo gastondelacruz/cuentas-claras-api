@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { CreatePersonalTransactionUseCase } from "./application/use-cases/create-personal-transaction.use-case";
 import { GetMeSummaryUseCase } from "./application/use-cases/get-me-summary.use-case";
+import { GetPersonalTransactionsSummaryUseCase } from "./application/use-cases/get-personal-transactions-summary.use-case";
 import { ListMyAccountsUseCase } from "./application/use-cases/list-my-accounts.use-case";
 import { ListPersonalTransactionsUseCase } from "./application/use-cases/list-personal-transactions.use-case";
 import { AccountsRepository } from "./domain/ports/accounts.repository";
@@ -17,6 +18,7 @@ import { PrismaPersonalTransactionsRepository } from "./infrastructure/persisten
 		GetMeSummaryUseCase,
 		ListMyAccountsUseCase,
 		ListPersonalTransactionsUseCase,
+		GetPersonalTransactionsSummaryUseCase,
 		CreatePersonalTransactionUseCase,
 		PrismaMeSummaryRepository,
 		PrismaAccountsRepository,

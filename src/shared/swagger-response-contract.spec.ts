@@ -28,6 +28,7 @@ import { GroupsController } from "../groups/infrastructure/http/groups.controlle
 import { HealthController } from "../health/health.controller";
 import { CreatePersonalTransactionUseCase } from "../me/application/use-cases/create-personal-transaction.use-case";
 import { GetMeSummaryUseCase } from "../me/application/use-cases/get-me-summary.use-case";
+import { GetPersonalTransactionsSummaryUseCase } from "../me/application/use-cases/get-personal-transactions-summary.use-case";
 import { ListMyAccountsUseCase } from "../me/application/use-cases/list-my-accounts.use-case";
 import { ListPersonalTransactionsUseCase } from "../me/application/use-cases/list-personal-transactions.use-case";
 import { MeController } from "../me/infrastructure/http/me.controller";
@@ -83,6 +84,7 @@ describe("global Swagger response contract", () => {
 				{ provide: UpdateExpenseUseCase, useValue: executeMock },
 				{ provide: DeleteExpenseUseCase, useValue: executeMock },
 				{ provide: GetMeSummaryUseCase, useValue: executeMock },
+				{ provide: GetPersonalTransactionsSummaryUseCase, useValue: executeMock },
 				{ provide: ListMyAccountsUseCase, useValue: executeMock },
 				{ provide: ListPersonalTransactionsUseCase, useValue: executeMock },
 				{ provide: CreatePersonalTransactionUseCase, useValue: executeMock },
@@ -229,6 +231,12 @@ describe("global Swagger response contract", () => {
 			"#/components/schemas/ListAccountsResponseDto",
 		);
 		expectEnvelopeDataRef(
+			"/api/v1/me/personal-transactions/summary",
+			"get",
+			"200",
+			"#/components/schemas/PersonalTransactionsSummaryResponseDto",
+		);
+		expectEnvelopeDataRef(
 			"/api/v1/me/personal-transactions",
 			"get",
 			"200",
@@ -270,6 +278,28 @@ describe("global Swagger response contract", () => {
 		expect(byName.get("cursor")?.description).toBeTruthy();
 		expect(byName.get("limit")).toMatchObject({ in: "query", required: false });
 		expect(byName.get("limit")?.description).toBeTruthy();
+	});
+
+	it("documents personal-transactions summary query parameters with enums and descriptions", () => {
+		const parameters = document.paths["/api/v1/me/personal-transactions/summary"]
+			?.get?.parameters as OpenApiParameter[] | undefined;
+
+		expect(parameters).toBeDefined();
+
+		const byName = new Map((parameters ?? []).map((param) => [param.name, param]));
+
+		expect(byName.get("range")).toMatchObject({
+			in: "query",
+			required: false,
+			schema: expect.objectContaining({
+				enum: ["day", "week", "month", "year", "period"],
+			}),
+		});
+		expect(byName.get("range")?.description).toBeTruthy();
+		expect(byName.get("from")).toMatchObject({ in: "query", required: false });
+		expect(byName.get("from")?.description).toBeTruthy();
+		expect(byName.get("to")).toMatchObject({ in: "query", required: false });
+		expect(byName.get("to")?.description).toBeTruthy();
 	});
 
 	it("documents the create-personal-transaction request body with descriptions and examples", () => {

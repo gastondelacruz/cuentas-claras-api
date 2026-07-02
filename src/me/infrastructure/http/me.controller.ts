@@ -17,6 +17,7 @@ import {
 } from "../../../shared/swagger/api-envelope-response.decorator";
 import { CreatePersonalTransactionUseCase } from "../../application/use-cases/create-personal-transaction.use-case";
 import { GetMeSummaryUseCase } from "../../application/use-cases/get-me-summary.use-case";
+import { GetPersonalTransactionsSummaryUseCase } from "../../application/use-cases/get-personal-transactions-summary.use-case";
 import { ListMyAccountsUseCase } from "../../application/use-cases/list-my-accounts.use-case";
 import { ListPersonalTransactionsUseCase } from "../../application/use-cases/list-personal-transactions.use-case";
 import { type TransactionPeriod } from "../../domain/value-objects/transaction-period.vo";
@@ -31,6 +32,8 @@ import {
 	ListPersonalTransactionsResponseDto,
 } from "./dto/list-personal-transactions-response.dto";
 import { MeSummaryResponseDto } from "./dto/me-summary-response.dto";
+import { PersonalTransactionsSummaryQueryDto } from "./dto/personal-transactions-summary-query.dto";
+import { PersonalTransactionsSummaryResponseDto } from "./dto/personal-transactions-summary-response.dto";
 import { AccountsMapper } from "./mappers/accounts.mapper";
 import { MeMapper } from "./mappers/me.mapper";
 import { PersonalTransactionsMapper } from "./mappers/personal-transactions.mapper";
@@ -43,6 +46,7 @@ export class MeController {
 		private readonly getMeSummaryUseCase: GetMeSummaryUseCase,
 		private readonly listMyAccountsUseCase: ListMyAccountsUseCase,
 		private readonly listPersonalTransactionsUseCase: ListPersonalTransactionsUseCase,
+		private readonly getPersonalTransactionsSummaryUseCase: GetPersonalTransactionsSummaryUseCase,
 		private readonly createPersonalTransactionUseCase: CreatePersonalTransactionUseCase,
 	) {}
 
@@ -104,6 +108,27 @@ export class MeController {
 		return PersonalTransactionsMapper.toResponseListDto(output);
 	}
 
+	@Get("personal-transactions/summary")
+	@ApiOkDataResponse({ type: PersonalTransactionsSummaryResponseDto })
+	async getPersonalTransactionsSummary(
+		@CurrentUser("userId") userId: string,
+		@Query() query: PersonalTransactionsSummaryQueryDto,
+	): Promise<PersonalTransactionsSummaryResponseDto> {
+		this.validatePeriodQuery(query.range, query.from, query.to);
+
+		const output = await this.getPersonalTransactionsSummaryUseCase.execute({
+			userId,
+			period:
+				query.range === "period"
+					? undefined
+					: (query.range as TransactionPeriod),
+			dateFrom: query.from ? new Date(query.from) : undefined,
+			dateTo: query.to ? new Date(query.to) : undefined,
+		});
+
+		return PersonalTransactionsMapper.toSummaryResponseDto(output);
+	}
+
 	@Post("personal-transactions")
 	@ApiCreatedDataResponse({ type: CreatePersonalTransactionResponseDto })
 	async createPersonalTransaction(
@@ -122,5 +147,25 @@ export class MeController {
 		});
 
 		return PersonalTransactionsMapper.toCreateResponseDto(transaction);
+	}
+
+	private validatePeriodQuery(
+		range: string,
+		from: string | undefined,
+		to: string | undefined,
+	): void {
+		if (range === "period" && (!from || !to)) {
+			throw new BadRequestException({
+				code: "PERSONAL_TX_INVALID_PERIOD",
+				message: 'Both "from" and "to" are required when range is "period".',
+			});
+		}
+
+		if (from && to && new Date(from).getTime() > new Date(to).getTime()) {
+			throw new BadRequestException({
+				code: "PERSONAL_TX_INVALID_PERIOD",
+				message: '"from" must be less than or equal to "to".',
+			});
+		}
 	}
 }
