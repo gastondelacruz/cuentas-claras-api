@@ -43,11 +43,18 @@ export class RegisterUseCase {
 		}
 
 		const passwordHash = await this.passwordHasher.hash(input.password);
-		const user = await this.users.createWithPassword({
-			name: input.name,
-			email: input.email,
-			passwordHash,
-		});
+		const user = await this.users.createUserWithDefaultAccount(
+			{
+				name: input.name,
+				email: input.email,
+				passwordHash,
+			},
+			{
+				name: "Cuenta principal",
+				currency: "ARS",
+				kind: "cash",
+			},
+		);
 		const accessToken = await this.tokens.signAccessToken({
 			sub: user.id,
 			email: user.email,

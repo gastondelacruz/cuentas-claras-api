@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { AccountKind } from "@prisma/client";
 import { PrismaService } from "../../../prisma/prisma.service";
 import { DatabaseException } from "../../../shared/exceptions/database.exception";
 import {
@@ -6,6 +7,7 @@ import {
 	type AuthLoginUser,
 	type AuthUser,
 	type CreateUserWithPasswordInput,
+	type DefaultAccountInput,
 } from "../../domain/ports/auth-user.repository";
 
 @Injectable()
@@ -71,6 +73,44 @@ export class PrismaAuthUserRepository extends AuthUserRepository {
 				},
 			}),
 		);
+	}
+
+	createUserWithDefaultAccount(
+		input: CreateUserWithPasswordInput,
+		defaultAccount: DefaultAccountInput,
+	): Promise<AuthUser> {
+		return this.runDatabaseOperation("AUTH_USER_CREATE_DATABASE_ERROR", () =>
+			this.prisma.$transaction(async (tx) => {
+				const user = await tx.user.create({
+					data: {
+						name: input.name,
+						email: input.email,
+						passwordHash: input.passwordHash,
+					},
+					select: {
+						id: true,
+						name: true,
+						email: true,
+					},
+				});
+
+				await tx.account.create({
+					data: {
+						userId: user.id,
+						name: defaultAccount.name,
+						currency: defaultAccount.currency,
+						kind: this.toPrismaAccountKind(defaultAccount.kind),
+						isDefault: true,
+					},
+				});
+
+				return user;
+			}),
+		);
+	}
+
+	private toPrismaAccountKind(kind: string): AccountKind {
+		return kind.toUpperCase() as AccountKind;
 	}
 
 	private async runDatabaseOperation<T>(

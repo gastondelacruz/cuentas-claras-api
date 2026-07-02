@@ -11,18 +11,22 @@ import {
 } from "@nestjs/common";
 import {
 	ApiBearerAuth,
-	ApiCreatedResponse,
-	ApiOkResponse,
 	ApiTags,
 } from "@nestjs/swagger";
 import { CurrentUser } from "../../../shared/decorators/current-user.decorator";
+import {
+	ApiCreatedDataResponse,
+	ApiOkDataResponse,
+} from "../../../shared/swagger/api-envelope-response.decorator";
 import { CreateExpenseUseCase } from "../../application/use-cases/create-expense.use-case";
 import { DeleteExpenseUseCase } from "../../application/use-cases/delete-expense.use-case";
 import { GetExpenseDetailUseCase } from "../../application/use-cases/get-expense-detail.use-case";
 import { ListGroupExpensesUseCase } from "../../application/use-cases/list-group-expenses.use-case";
 import { UpdateExpenseUseCase } from "../../application/use-cases/update-expense.use-case";
 import { CreateExpenseRequestDto } from "./dto/create-expense-request.dto";
-import { CreateExpenseResponseDto } from "./dto/create-expense-response.dto";
+import {
+	CreateExpenseResponseDto,
+} from "./dto/create-expense-response.dto";
 import { DeleteExpenseResponseDto } from "./dto/delete-expense-response.dto";
 import { ListExpensesQueryDto } from "./dto/list-expenses-query.dto";
 import { ListExpensesResponseDto } from "./dto/list-expenses-response.dto";
@@ -39,7 +43,7 @@ export class ExpensesController {
 	) {}
 
 	@Get()
-	@ApiOkResponse()
+	@ApiOkDataResponse({ type: ListExpensesResponseDto })
 	async list(
 		@CurrentUser("userId") userId: string,
 		@Param("groupId", ParseUUIDPipe) groupId: string,
@@ -54,7 +58,7 @@ export class ExpensesController {
 	}
 
 	@Post()
-	@ApiCreatedResponse()
+	@ApiCreatedDataResponse({ type: CreateExpenseResponseDto })
 	async create(
 		@CurrentUser("userId") userId: string,
 		@Param("groupId", ParseUUIDPipe) groupId: string,
@@ -77,7 +81,7 @@ export class ExpenseDetailController {
 	) {}
 
 	@Get(":expenseId")
-	@ApiOkResponse()
+	@ApiOkDataResponse({ type: CreateExpenseResponseDto })
 	async getById(
 		@CurrentUser("userId") userId: string,
 		@Param("expenseId", ParseUUIDPipe) expenseId: string,
@@ -87,7 +91,7 @@ export class ExpenseDetailController {
 	}
 
 	@Patch(":expenseId")
-	@ApiOkResponse()
+	@ApiOkDataResponse({ type: CreateExpenseResponseDto })
 	async update(
 		@CurrentUser("userId") userId: string,
 		@Param("expenseId", ParseUUIDPipe) expenseId: string,
@@ -99,7 +103,7 @@ export class ExpenseDetailController {
 	}
 
 	@Delete(":expenseId")
-	@ApiOkResponse()
+	@ApiOkDataResponse({ type: DeleteExpenseResponseDto })
 	async delete(
 		@CurrentUser("userId") userId: string,
 		@Param("expenseId", ParseUUIDPipe) expenseId: string,

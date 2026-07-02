@@ -16,10 +16,14 @@ describe("HealthController", () => {
 		expect(controller).toBeDefined();
 	});
 
-	it('returns status "ok" and a numeric uptime', () => {
+	it('returns the health payload in the success data envelope', () => {
 		const result = controller.getHealth();
 
-		expect(result.status).toBe("ok");
-		expect(typeof result.uptime).toBe("number");
+		expect(result).toEqual({
+			data: {
+				status: "ok",
+				uptime: expect.any(Number),
+			},
+		});
 	});
 });

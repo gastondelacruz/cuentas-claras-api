@@ -1,7 +1,11 @@
 import { Body, Controller, HttpCode, HttpStatus, Post } from "@nestjs/common";
-import { ApiNoContentResponse, ApiOkResponse, ApiCreatedResponse, ApiTags } from "@nestjs/swagger";
+import { ApiNoContentResponse, ApiTags } from "@nestjs/swagger";
 import { CurrentUser } from "../../../shared/decorators/current-user.decorator";
 import { Public } from "../../../shared/decorators/public.decorator";
+import {
+	ApiCreatedDataResponse,
+	ApiOkDataResponse,
+} from "../../../shared/swagger/api-envelope-response.decorator";
 import { LogoutUseCase } from "../../application/use-cases/logout.use-case";
 import { LoginUseCase } from "../../application/use-cases/login.use-case";
 import { RefreshTokenUseCase } from "../../application/use-cases/refresh.use-case";
@@ -27,7 +31,7 @@ export class AuthController {
 
 	@Post("register")
 	@Public()
-	@ApiCreatedResponse({ type: RegisterResponseDto })
+	@ApiCreatedDataResponse({ type: RegisterResponseDto })
 	async register(
 		@Body() body: RegisterRequestDto,
 	): Promise<RegisterResponseDto> {
@@ -41,7 +45,7 @@ export class AuthController {
 	@Post("login")
 	@Public()
 	@HttpCode(HttpStatus.OK)
-	@ApiOkResponse({ type: RegisterResponseDto })
+	@ApiOkDataResponse({ type: RegisterResponseDto })
 	async login(@Body() body: LoginRequestDto): Promise<RegisterResponseDto> {
 		const result = await this.loginUseCase.execute(
 			AuthMapper.toLoginInput(body),
@@ -53,7 +57,7 @@ export class AuthController {
 	@Post("refresh")
 	@Public()
 	@HttpCode(HttpStatus.OK)
-	@ApiOkResponse({ type: RefreshResponseDto })
+	@ApiOkDataResponse({ type: RefreshResponseDto })
 	async refresh(@Body() body: RefreshRequestDto): Promise<RefreshResponseDto> {
 		const result = await this.refreshTokenUseCase.execute(
 			AuthMapper.toRefreshInput(body),

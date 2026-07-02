@@ -3,6 +3,7 @@ import { PrismaClient } from "@prisma/client";
 
 const DEV_USER_ID = "00000000-0000-0000-0000-000000000001";
 const DEV_USER_EMAIL = "dev@cuentasclaras.local";
+const DEV_DEFAULT_ACCOUNT_ID = "00000000-0000-0000-0000-000000000002";
 
 async function main() {
 	if (!process.env.DATABASE_URL) {
@@ -29,6 +30,21 @@ async function main() {
 				name: "Development User",
 				email: DEV_USER_EMAIL,
 				avatarUrl: null,
+			},
+		});
+
+		await prisma.account.upsert({
+			where: {
+				id: DEV_DEFAULT_ACCOUNT_ID,
+			},
+			update: {},
+			create: {
+				id: DEV_DEFAULT_ACCOUNT_ID,
+				userId: DEV_USER_ID,
+				name: "Cuenta principal",
+				kind: "BANK",
+				currency: "ARS",
+				isDefault: true,
 			},
 		});
 	} finally {
