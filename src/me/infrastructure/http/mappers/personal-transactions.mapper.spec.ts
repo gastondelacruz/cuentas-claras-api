@@ -38,7 +38,7 @@ describe("PersonalTransactionsMapper", () => {
 	it("maps a transaction to a response DTO", () => {
 		const dto = PersonalTransactionsMapper.toResponseDto(transaction);
 
-			expect(dto).toEqual({
+		expect(dto).toEqual({
 			id: transaction.id,
 			type: transaction.type,
 			amount: transaction.amount,
@@ -98,5 +98,30 @@ describe("PersonalTransactionsMapper", () => {
 		const dto = PersonalTransactionsMapper.toResponseListDto(output);
 
 		expect(dto.nextCursor).toBeNull();
+	});
+
+	it("maps a personal transactions summary response", () => {
+		const output = {
+			total: 750,
+			incomeTotal: 1000,
+			expenseTotal: 250,
+			currency: "ARS",
+			breakdown: [
+				{
+					category: "Salary",
+					type: "income",
+					amount: 1000,
+					percentage: 100,
+				},
+				{
+					category: "Food",
+					type: "expense",
+					amount: 250,
+					percentage: 100,
+				},
+			],
+		};
+
+		expect(PersonalTransactionsMapper.toSummaryResponseDto(output)).toEqual(output);
 	});
 });

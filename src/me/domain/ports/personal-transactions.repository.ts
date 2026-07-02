@@ -33,6 +33,24 @@ export type PersonalTransactionFilters = {
 	cursor?: string;
 };
 
+export type PersonalTransactionsSummaryFilters = {
+	userId: string;
+	dateFrom?: Date;
+	dateTo?: Date;
+};
+
+export type PersonalTransactionsSummaryBreakdown = {
+	category: string;
+	type: string;
+	amount: number;
+};
+
+export type PersonalTransactionsSummary = {
+	incomeTotal: number;
+	expenseTotal: number;
+	breakdown: PersonalTransactionsSummaryBreakdown[];
+};
+
 export type FindFilteredPersonalTransactionsResult = {
 	items: PersonalTransaction[];
 	nextCursor: string | null;
@@ -42,6 +60,9 @@ export abstract class PersonalTransactionsRepository {
 	abstract findFiltered(
 		filters: PersonalTransactionFilters,
 	): Promise<FindFilteredPersonalTransactionsResult>;
+	abstract getSummary(
+		filters: PersonalTransactionsSummaryFilters,
+	): Promise<PersonalTransactionsSummary>;
 	abstract create(
 		data: CreatePersonalTransactionInput,
 	): Promise<PersonalTransaction>;

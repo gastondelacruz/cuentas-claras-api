@@ -1,10 +1,12 @@
 import { type PersonalTransaction } from "../../../domain/ports/personal-transactions.repository";
+import { type GetPersonalTransactionsSummaryOutput } from "../../../application/use-cases/get-personal-transactions-summary.use-case";
 import { type ListPersonalTransactionsOutput } from "../../../application/use-cases/list-personal-transactions.use-case";
 import { type CreatePersonalTransactionResponseDto } from "../dto/create-personal-transaction-response.dto";
 import {
 	type ListPersonalTransactionsResponseDto,
 	type PersonalTransactionResponseDto,
 } from "../dto/list-personal-transactions-response.dto";
+import { type PersonalTransactionsSummaryResponseDto } from "../dto/personal-transactions-summary-response.dto";
 
 export class PersonalTransactionsMapper {
 	static toResponseDto(
@@ -46,6 +48,23 @@ export class PersonalTransactionsMapper {
 		transaction: PersonalTransaction,
 	): CreatePersonalTransactionResponseDto {
 		return PersonalTransactionsMapper.toResponseDto(transaction);
+	}
+
+	static toSummaryResponseDto(
+		output: GetPersonalTransactionsSummaryOutput,
+	): PersonalTransactionsSummaryResponseDto {
+		return {
+			total: output.total,
+			incomeTotal: output.incomeTotal,
+			expenseTotal: output.expenseTotal,
+			currency: output.currency,
+			breakdown: output.breakdown.map((item) => ({
+				category: item.category,
+				type: item.type,
+				amount: item.amount,
+				percentage: item.percentage,
+			})),
+		};
 	}
 
 	static encodeCursor(id: string): string {
