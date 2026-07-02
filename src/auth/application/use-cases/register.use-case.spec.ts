@@ -11,7 +11,7 @@ describe("RegisterUseCase", () => {
 	let useCase: RegisterUseCase;
 	let users: {
 		findByEmail: ReturnType<typeof vi.fn>;
-		createWithPassword: ReturnType<typeof vi.fn>;
+		createUserWithDefaultAccount: ReturnType<typeof vi.fn>;
 	};
 	let passwordHasher: {
 		hash: ReturnType<typeof vi.fn>;
@@ -31,7 +31,7 @@ describe("RegisterUseCase", () => {
 	beforeEach(async () => {
 		users = {
 			findByEmail: vi.fn(),
-			createWithPassword: vi.fn(),
+			createUserWithDefaultAccount: vi.fn(),
 		};
 		passwordHasher = {
 			hash: vi.fn(),
@@ -74,7 +74,7 @@ describe("RegisterUseCase", () => {
 		passwordHasher.hash
 			.mockResolvedValueOnce("hashed-password")
 			.mockResolvedValueOnce("hashed-refresh-token");
-		users.createWithPassword.mockResolvedValue(createdUser);
+		users.createUserWithDefaultAccount.mockResolvedValue(createdUser);
 		tokens.signAccessToken.mockResolvedValue("access-token");
 		tokens.signRefreshToken.mockResolvedValue({
 			token: "refresh-token",
@@ -95,11 +95,18 @@ describe("RegisterUseCase", () => {
 		});
 		expect(users.findByEmail).toHaveBeenCalledWith("new@example.com");
 		expect(passwordHasher.hash).toHaveBeenNthCalledWith(1, "SecureP4ss!");
-		expect(users.createWithPassword).toHaveBeenCalledWith({
-			name: "Jane",
-			email: "new@example.com",
-			passwordHash: "hashed-password",
-		});
+		expect(users.createUserWithDefaultAccount).toHaveBeenCalledWith(
+			{
+				name: "Jane",
+				email: "new@example.com",
+				passwordHash: "hashed-password",
+			},
+			{
+				name: "Cuenta principal",
+				currency: "ARS",
+				kind: "cash",
+			},
+		);
 		expect(tokens.signAccessToken).toHaveBeenCalledWith({
 			sub: createdUser.id,
 			email: createdUser.email,
@@ -115,7 +122,9 @@ describe("RegisterUseCase", () => {
 			tokenDigest: "computed-token-digest",
 			expiresAt,
 		});
-		expect(users.createWithPassword.mock.calls[0][0].passwordHash).not.toBe(
+		expect(
+			users.createUserWithDefaultAccount.mock.calls[0][0].passwordHash,
+		).not.toBe(
 			"SecureP4ss!",
 		);
 		expect(refreshTokens.save.mock.calls[0][0].tokenHash).not.toBe(
@@ -143,7 +152,7 @@ describe("RegisterUseCase", () => {
 			type: "business",
 		});
 		expect(passwordHasher.hash).not.toHaveBeenCalled();
-		expect(users.createWithPassword).not.toHaveBeenCalled();
+		expect(users.createUserWithDefaultAccount).not.toHaveBeenCalled();
 		expect(tokens.signAccessToken).not.toHaveBeenCalled();
 		expect(tokens.signRefreshToken).not.toHaveBeenCalled();
 		expect(refreshTokens.save).not.toHaveBeenCalled();

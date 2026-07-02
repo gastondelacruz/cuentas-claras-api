@@ -1,0 +1,156 @@
+import { Injectable } from "@nestjs/common";
+import { PrismaService } from "../../../prisma/prisma.service";
+import { DatabaseException } from "../../../shared/exceptions/database.exception";
+import {
+	CreatePersonalTransactionInput,
+	FindFilteredPersonalTransactionsResult,
+	PersonalTransactionsRepository,
+	type PersonalTransaction,
+	type PersonalTransactionFilters,
+} from "../../domain/ports/personal-transactions.repository";
+
+@Injectable()
+export class PrismaPersonalTransactionsRepository extends PersonalTransactionsRepository {
+	constructor(private readonly prisma: PrismaService) {
+		super();
+	}
+
+	async findFiltered(
+		filters: PersonalTransactionFilters,
+	): Promise<FindFilteredPersonalTransactionsResult> {
+		return this.runDatabaseOperation(
+			"PERSONAL_TX_LIST_DATABASE_ERROR",
+			async () => {
+				const take = filters.limit + 1;
+				const rows = await this.prisma.personalTransaction.findMany({
+					include: {
+						account: {
+							select: {
+								name: true,
+							},
+						},
+					},
+					where: {
+						userId: filters.userId,
+						...(filters.type ? { type: filters.type } : {}),
+						...(filters.dateFrom || filters.dateTo
+							? {
+									occurredAt: {
+										...(filters.dateFrom
+											? { gte: filters.dateFrom }
+											: {}),
+										...(filters.dateTo
+											? { lt: filters.dateTo }
+											: {}),
+									},
+								}
+							: {}),
+					},
+					orderBy: [
+						{ occurredAt: "desc" },
+						{ id: "desc" },
+					],
+					...(filters.cursor
+						? {
+								skip: 1,
+								cursor: { id: filters.cursor },
+							}
+						: {}),
+					take,
+				});
+
+				const hasNextPage = rows.length > filters.limit;
+				const items = hasNextPage ? rows.slice(0, filters.limit) : rows;
+				const nextCursor = hasNextPage ? items[items.length - 1].id : null;
+
+				return {
+					items: items.map(mapTransaction),
+					nextCursor,
+				};
+			},
+		);
+	}
+
+	async create(
+		data: CreatePersonalTransactionInput,
+	): Promise<PersonalTransaction> {
+		return this.runDatabaseOperation(
+			"PERSONAL_TX_CREATE_DATABASE_ERROR",
+			async () => {
+				const transaction = await this.prisma.personalTransaction.create({
+					data: {
+						userId: data.userId,
+						accountId: data.accountId,
+						type: data.type,
+						amount: data.amount,
+						currency: data.currency,
+						category: data.category,
+						occurredAt: data.occurredAt,
+						note: data.note ?? null,
+					},
+					include: {
+						account: {
+							select: {
+								name: true,
+							},
+						},
+					},
+				});
+
+				return mapTransaction(transaction);
+			},
+		);
+	}
+
+	private async runDatabaseOperation<T>(
+		code: string,
+		operation: () => Promise<T>,
+	): Promise<T> {
+		try {
+			return await operation();
+		} catch (error) {
+			if (error instanceof DatabaseException) {
+				throw error;
+			}
+
+			throw new DatabaseException(code);
+		}
+	}
+}
+
+function mapTransaction(
+	transaction: {
+		id: string;
+		userId: string;
+		accountId: string;
+		type: string;
+		amount: { toNumber: () => number } | number;
+		currency: string;
+		category: string;
+		occurredAt: Date;
+		note: string | null;
+		createdAt: Date;
+		updatedAt: Date;
+		account: {
+			name: string;
+		};
+	},
+): PersonalTransaction {
+	return {
+		id: transaction.id,
+		userId: transaction.userId,
+		accountId: transaction.accountId,
+		accountName: transaction.account.name,
+		type: transaction.type,
+		amount:
+			typeof transaction.amount === "number"
+				? transaction.amount
+				: transaction.amount.toNumber(),
+		currency: transaction.currency,
+		category: transaction.category,
+		occurredAt: transaction.occurredAt,
+		note: transaction.note,
+		createdAt: transaction.createdAt,
+		updatedAt: transaction.updatedAt,
+	};
+}

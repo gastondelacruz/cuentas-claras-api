@@ -1,25 +1,126 @@
-import { Controller, Get } from "@nestjs/common";
-import { ApiBearerAuth, ApiOkResponse, ApiTags } from "@nestjs/swagger";
-import { CurrentUser } from "../../../shared/decorators/current-user.decorator";
-import { GetMeSummaryUseCase } from "../../application/use-cases/get-me-summary.use-case";
 import {
-	MeSummaryEnvelopeResponseDto,
-	MeSummaryResponseDto,
-} from "./dto/me-summary-response.dto";
+	BadRequestException,
+	Body,
+	Controller,
+	Get,
+	Post,
+	Query,
+} from "@nestjs/common";
+import {
+	ApiBearerAuth,
+	ApiTags,
+} from "@nestjs/swagger";
+import { CurrentUser } from "../../../shared/decorators/current-user.decorator";
+import {
+	ApiCreatedDataResponse,
+	ApiOkDataResponse,
+} from "../../../shared/swagger/api-envelope-response.decorator";
+import { CreatePersonalTransactionUseCase } from "../../application/use-cases/create-personal-transaction.use-case";
+import { GetMeSummaryUseCase } from "../../application/use-cases/get-me-summary.use-case";
+import { ListMyAccountsUseCase } from "../../application/use-cases/list-my-accounts.use-case";
+import { ListPersonalTransactionsUseCase } from "../../application/use-cases/list-personal-transactions.use-case";
+import { type TransactionPeriod } from "../../domain/value-objects/transaction-period.vo";
+import { type TransactionType } from "../../domain/value-objects/transaction-type.vo";
+import { ListAccountsResponseDto } from "./dto/list-accounts-response.dto";
+import { CreatePersonalTransactionRequestDto } from "./dto/create-personal-transaction-request.dto";
+import {
+	CreatePersonalTransactionResponseDto,
+} from "./dto/create-personal-transaction-response.dto";
+import { ListPersonalTransactionsQueryDto } from "./dto/list-personal-transactions-query.dto";
+import {
+	ListPersonalTransactionsResponseDto,
+} from "./dto/list-personal-transactions-response.dto";
+import { MeSummaryResponseDto } from "./dto/me-summary-response.dto";
+import { AccountsMapper } from "./mappers/accounts.mapper";
 import { MeMapper } from "./mappers/me.mapper";
+import { PersonalTransactionsMapper } from "./mappers/personal-transactions.mapper";
 
 @ApiTags("me")
 @ApiBearerAuth()
 @Controller("api/v1/me")
 export class MeController {
-	constructor(private readonly getMeSummaryUseCase: GetMeSummaryUseCase) {}
+	constructor(
+		private readonly getMeSummaryUseCase: GetMeSummaryUseCase,
+		private readonly listMyAccountsUseCase: ListMyAccountsUseCase,
+		private readonly listPersonalTransactionsUseCase: ListPersonalTransactionsUseCase,
+		private readonly createPersonalTransactionUseCase: CreatePersonalTransactionUseCase,
+	) {}
 
 	@Get("summary")
-	@ApiOkResponse({ type: MeSummaryEnvelopeResponseDto })
+	@ApiOkDataResponse({ type: MeSummaryResponseDto })
 	async getSummary(
 		@CurrentUser("userId") userId: string,
 	): Promise<MeSummaryResponseDto> {
 		const summary = await this.getMeSummaryUseCase.execute(userId);
 		return MeMapper.toSummaryResponseDto(summary);
+	}
+
+	@Get("accounts")
+	@ApiOkDataResponse({ type: ListAccountsResponseDto })
+	async listAccounts(
+		@CurrentUser("userId") userId: string,
+	): Promise<ListAccountsResponseDto> {
+		const accounts = await this.listMyAccountsUseCase.execute(userId);
+		return AccountsMapper.toResponseListDto(accounts);
+	}
+
+	@Get("personal-transactions")
+	@ApiOkDataResponse({ type: ListPersonalTransactionsResponseDto })
+	async listPersonalTransactions(
+		@CurrentUser("userId") userId: string,
+		@Query() query: ListPersonalTransactionsQueryDto,
+	): Promise<ListPersonalTransactionsResponseDto> {
+		const decodedCursor = query.cursor
+			? PersonalTransactionsMapper.decodeCursor(query.cursor)
+			: undefined;
+
+		if (query.cursor && decodedCursor === undefined) {
+			throw new BadRequestException({
+				code: "PERSONAL_TX_INVALID_CURSOR",
+				message: "Invalid cursor.",
+			});
+		}
+
+		if (query.range === "period" && (!query.from || !query.to)) {
+			throw new BadRequestException({
+				code: "PERSONAL_TX_INVALID_PERIOD",
+				message: 'Both "from" and "to" are required when range is "period".',
+			});
+		}
+
+		const output = await this.listPersonalTransactionsUseCase.execute({
+			userId,
+			type: query.type as TransactionType | undefined,
+			period:
+				query.range === "period"
+					? undefined
+					: (query.range as TransactionPeriod),
+			dateFrom: query.from ? new Date(query.from) : undefined,
+			dateTo: query.to ? new Date(query.to) : undefined,
+			limit: query.limit,
+			cursor: decodedCursor,
+		});
+
+		return PersonalTransactionsMapper.toResponseListDto(output);
+	}
+
+	@Post("personal-transactions")
+	@ApiCreatedDataResponse({ type: CreatePersonalTransactionResponseDto })
+	async createPersonalTransaction(
+		@CurrentUser("userId") userId: string,
+		@Body() dto: CreatePersonalTransactionRequestDto,
+	): Promise<CreatePersonalTransactionResponseDto> {
+		const transaction = await this.createPersonalTransactionUseCase.execute({
+			userId,
+			accountId: dto.accountId,
+			type: dto.type as TransactionType,
+			amount: dto.amount,
+			currency: dto.currency,
+			category: dto.category,
+			occurredAt: new Date(dto.occurredAt),
+			note: dto.note,
+		});
+
+		return PersonalTransactionsMapper.toCreateResponseDto(transaction);
 	}
 }

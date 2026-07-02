@@ -24,18 +24,28 @@ enum GroupType {
 	@@map("group_type")
 }
 
+enum AccountKind {
+	CASH   @map("cash")
+	BANK   @map("bank")
+	CREDIT @map("credit")
+
+	@@map("account_kind")
+}
+
 model User {
-  id            String         @id @default(uuid()) @db.Uuid
-  name          String
-  email         String         @unique
-  avatarUrl     String?        @map("avatar_url")
-  passwordHash  String?        @map("password_hash")
-  googleId      String?        @unique @map("google_id")
-  createdAt     DateTime       @default(now()) @map("created_at")
-  updatedAt     DateTime       @updatedAt @map("updated_at")
-  ownedGroups   Group[]        @relation("GroupOwner")
-  groupMembers  GroupMember[]
-  refreshTokens RefreshToken[]
+  id                   String                @id @default(uuid()) @db.Uuid
+  name                 String
+  email                String                @unique
+  avatarUrl            String?               @map("avatar_url")
+  passwordHash         String?               @map("password_hash")
+  googleId             String?               @unique @map("google_id")
+  createdAt            DateTime              @default(now()) @map("created_at")
+  updatedAt            DateTime              @updatedAt @map("updated_at")
+  ownedGroups          Group[]               @relation("GroupOwner")
+  groupMembers         GroupMember[]
+  refreshTokens        RefreshToken[]
+  accounts             Account[]
+  personalTransactions PersonalTransaction[]
 
   @@map("users")
 }
@@ -156,4 +166,42 @@ model SettlementPayment {
   @@index([fromMemberId])
   @@index([toMemberId])
   @@map("settlement_payments")
+}
+
+model Account {
+  id                   String                @id @default(uuid()) @db.Uuid
+  userId               String                @map("user_id") @db.Uuid
+  name                 String
+  kind                 AccountKind
+  currency             String
+  isDefault            Boolean               @default(false) @map("is_default")
+  archivedAt           DateTime?             @map("archived_at")
+  createdAt            DateTime              @default(now()) @map("created_at")
+  updatedAt            DateTime              @updatedAt @map("updated_at")
+  user                 User                  @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  personalTransactions PersonalTransaction[]
+
+  @@index([userId])
+  @@map("accounts")
+}
+
+model PersonalTransaction {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  accountId   String    @map("account_id") @db.Uuid
+  type        String
+  amount      Decimal   @db.Decimal(12, 2)
+  currency    String
+  category    String
+  occurredAt  DateTime  @map("occurred_at")
+  note        String?
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  account     Account   @relation(fields: [accountId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([userId])
+  @@index([accountId])
+  @@index([occurredAt])
+  @@map("personal_transactions")
 }

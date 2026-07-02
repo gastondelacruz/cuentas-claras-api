@@ -571,6 +571,21 @@ describe("Auth registration endpoint (e2e)", () => {
 			),
 		).resolves.toBe(true);
 		expect(persistedRefreshToken.expiresAt.getTime()).toBeGreaterThan(Date.now());
+
+		const accounts = await prisma.account.findMany({
+			where: {
+				userId: user.id,
+				isDefault: true,
+				archivedAt: null,
+			},
+		});
+		expect(accounts).toHaveLength(1);
+		expect(accounts[0]).toMatchObject({
+			name: "Cuenta principal",
+			currency: "ARS",
+			kind: "CASH",
+			isDefault: true,
+		});
 	});
 
 	it("POST /api/v1/auth/register returns EMAIL_ALREADY_EXISTS for duplicate email", async () => {

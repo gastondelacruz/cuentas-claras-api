@@ -10,11 +10,13 @@ import {
 } from "@nestjs/common";
 import {
 	ApiBearerAuth,
-	ApiCreatedResponse,
-	ApiOkResponse,
 	ApiTags,
 } from "@nestjs/swagger";
 import { CurrentUser } from "../../../shared/decorators/current-user.decorator";
+import {
+	ApiCreatedDataResponse,
+	ApiOkDataResponse,
+} from "../../../shared/swagger/api-envelope-response.decorator";
 import { ArchiveGroupUseCase } from "../../application/use-cases/archive-group.use-case";
 import { CreateGroupUseCase } from "../../application/use-cases/create-group.use-case";
 import { GetGroupBalancesUseCase } from "../../application/use-cases/get-group-balances.use-case";
@@ -26,7 +28,9 @@ import { UpdateGroupUseCase } from "../../application/use-cases/update-group.use
 import { CreateGroupRequestDto } from "./dto/create-group-request.dto";
 import { UpdateGroupDto } from "./dto/update-group.dto";
 import { GroupMapper } from "./mappers/group.mapper";
-import { CreateGroupResponseDto } from "./dto/create-group-response.dto";
+import {
+	CreateGroupResponseDto,
+} from "./dto/create-group-response.dto";
 import { GroupBalancesResponseDto } from "./dto/group-balances-response.dto";
 import { GroupSettlementsResponseDto } from "./dto/group-settlements-response.dto";
 import { RecordSettlementPaymentRequestDto } from "./dto/record-settlement-payment-request.dto";
@@ -47,8 +51,8 @@ export class GroupsController {
 		private readonly recordSettlementPaymentUseCase: RecordSettlementPaymentUseCase,
 	) {}
 
-  @Post()
-  @ApiCreatedResponse()
+	@Post()
+	@ApiCreatedDataResponse({ type: CreateGroupResponseDto })
 	async create(
 		@CurrentUser("userId") userId: string,
 		@Body() body: CreateGroupRequestDto,
@@ -58,8 +62,8 @@ export class GroupsController {
 		return GroupMapper.toCreateResponseDto(group);
 	}
 
-  @Get()
-  @ApiOkResponse()
+	@Get()
+	@ApiOkDataResponse({ type: CreateGroupResponseDto, isArray: true })
 	async list(
 		@CurrentUser("userId") userId: string,
 	): Promise<CreateGroupResponseDto[]> {
@@ -67,8 +71,8 @@ export class GroupsController {
 		return groups.map((group) => GroupMapper.toListResponseDto(group));
 	}
 
-  @Get(":groupId")
-  @ApiOkResponse()
+	@Get(":groupId")
+	@ApiOkDataResponse({ type: CreateGroupResponseDto })
 	async getById(
 		@CurrentUser("userId") userId: string,
 		@Param("groupId", ParseUUIDPipe) groupId: string,
@@ -77,8 +81,8 @@ export class GroupsController {
 		return GroupMapper.toDetailResponseDto(group, userId);
 	}
 
-  @Get(":groupId/balances")
-  @ApiOkResponse()
+	@Get(":groupId/balances")
+	@ApiOkDataResponse({ type: GroupBalancesResponseDto })
 	async getBalances(
 		@CurrentUser("userId") userId: string,
 		@Param("groupId", ParseUUIDPipe) groupId: string,
@@ -87,8 +91,8 @@ export class GroupsController {
 		return GroupMapper.toBalancesResponseDto(balances);
 	}
 
-  @Get(":groupId/settlements")
-  @ApiOkResponse()
+	@Get(":groupId/settlements")
+	@ApiOkDataResponse({ type: GroupSettlementsResponseDto })
 	async getSettlements(
 		@CurrentUser("userId") userId: string,
 		@Param("groupId", ParseUUIDPipe) groupId: string,
@@ -97,8 +101,8 @@ export class GroupsController {
 		return GroupMapper.toSettlementsResponseDto(settlements);
 	}
 
-  @Post(":groupId/settlements")
-  @ApiCreatedResponse()
+	@Post(":groupId/settlements")
+	@ApiCreatedDataResponse({ type: RecordSettlementPaymentResponseDto })
 	async recordSettlementPayment(
 		@CurrentUser("userId") userId: string,
 		@Param("groupId", ParseUUIDPipe) groupId: string,
@@ -112,8 +116,8 @@ export class GroupsController {
 		return GroupMapper.toRecordSettlementPaymentResponseDto(result);
 	}
 
-  @Patch(":groupId")
-  @ApiOkResponse()
+	@Patch(":groupId")
+	@ApiOkDataResponse({ type: CreateGroupResponseDto })
 	async update(
 		@CurrentUser("userId") userId: string,
 		@Param("groupId", ParseUUIDPipe) groupId: string,
@@ -127,8 +131,8 @@ export class GroupsController {
 		return GroupMapper.toUpdateResponseDto(group);
 	}
 
-  @Delete(":groupId")
-  @ApiOkResponse()
+	@Delete(":groupId")
+	@ApiOkDataResponse({ type: CreateGroupResponseDto })
 	async archive(
 		@CurrentUser("userId") userId: string,
 		@Param("groupId", ParseUUIDPipe) groupId: string,

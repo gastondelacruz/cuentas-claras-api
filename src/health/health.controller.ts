@@ -1,26 +1,32 @@
 import { Controller, Get } from "@nestjs/common";
-import { ApiOkResponse, ApiTags } from "@nestjs/swagger";
+import { ApiProperty, ApiTags } from "@nestjs/swagger";
 import { Public } from "../shared/decorators/public.decorator";
+import { ApiOkDataResponse } from "../shared/swagger/api-envelope-response.decorator";
+
+export class HealthResponseDto {
+	@ApiProperty({ example: "ok" })
+	status!: string;
+
+	@ApiProperty({ example: 12.34 })
+	uptime!: number;
+}
+
+type HealthEnvelopeResponse = {
+	data: HealthResponseDto;
+};
 
 @ApiTags("health")
 @Public()
 @Controller("health")
 export class HealthController {
 	@Get()
-	@ApiOkResponse({
-		schema: {
-			example: {
-				data: {
-					status: "ok",
-					uptime: 12.34,
-				},
-			},
-		},
-	})
-	getHealth() {
+	@ApiOkDataResponse({ type: HealthResponseDto })
+	getHealth(): HealthEnvelopeResponse {
 		return {
-			status: "ok",
-			uptime: process.uptime(),
+			data: {
+				status: "ok",
+				uptime: process.uptime(),
+			},
 		};
 	}
 }

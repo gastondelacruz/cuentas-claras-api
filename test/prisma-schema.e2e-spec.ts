@@ -59,15 +59,19 @@ describe("Prisma initial database structure (e2e)", () => {
 					'group_members',
 					'expenses',
 					'expense_splits',
-					'settlement_payments'
+					'settlement_payments',
+					'accounts',
+					'personal_transactions'
 				)
 		`;
 
 		expect(tables.map((table) => table.table_name).sort()).toEqual([
+			"accounts",
 			"expense_splits",
 			"expenses",
 			"group_members",
 			"groups",
+			"personal_transactions",
 			"settlement_payments",
 			"users",
 		]);

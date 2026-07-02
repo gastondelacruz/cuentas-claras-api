@@ -27,11 +27,3 @@ export class MeSummaryResponseDto {
 	@ApiProperty({ example: "2026-06-01T00:00:00.000Z", nullable: true })
 	activeSince: string | null;
 }
-
-export class MeSummaryEnvelopeResponseDto {
-	@ApiProperty({
-		type: MeSummaryResponseDto,
-		description: "ResponseInterceptor wraps successful responses in this data envelope.",
-	})
-	data: MeSummaryResponseDto;
-}
