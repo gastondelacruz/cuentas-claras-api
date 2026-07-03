@@ -9,12 +9,33 @@ import {
 	type PersonalTransactionFilters,
 	type PersonalTransactionsSummary,
 	type PersonalTransactionsSummaryFilters,
+	type UpdatePersonalTransactionData,
 } from "../../domain/ports/personal-transactions.repository";
 
 @Injectable()
 export class PrismaPersonalTransactionsRepository extends PersonalTransactionsRepository {
 	constructor(private readonly prisma: PrismaService) {
 		super();
+	}
+
+	async findByIdAndUserId(
+		id: string,
+		userId: string,
+	): Promise<PersonalTransaction | null> {
+		return this.runDatabaseOperation(
+			"PERSONAL_TX_FIND_DATABASE_ERROR",
+			async () => {
+				const transaction = await this.prisma.personalTransaction.findFirst({
+					include: transactionInclude,
+					where: {
+						id,
+						userId,
+					},
+				});
+
+				return transaction ? mapTransaction(transaction) : null;
+			},
+		);
 	}
 
 	async findFiltered(
@@ -25,13 +46,7 @@ export class PrismaPersonalTransactionsRepository extends PersonalTransactionsRe
 			async () => {
 				const take = filters.limit + 1;
 				const rows = await this.prisma.personalTransaction.findMany({
-					include: {
-						account: {
-							select: {
-								name: true,
-							},
-						},
-					},
+					include: transactionInclude,
 					where: {
 						userId: filters.userId,
 						...(filters.type ? { type: filters.type } : {}),
@@ -90,14 +105,36 @@ export class PrismaPersonalTransactionsRepository extends PersonalTransactionsRe
 						occurredAt: data.occurredAt,
 						note: data.note ?? null,
 					},
-					include: {
-						account: {
-							select: {
-								name: true,
-							},
-						},
-					},
+					include: transactionInclude,
 				});
+
+				return mapTransaction(transaction);
+			},
+		);
+	}
+
+	async update(
+		id: string,
+		userId: string,
+		data: UpdatePersonalTransactionData,
+	): Promise<PersonalTransaction | null> {
+		return this.runDatabaseOperation(
+			"PERSONAL_TX_UPDATE_DATABASE_ERROR",
+			async () => {
+				const result = await this.prisma.personalTransaction.updateMany({
+					where: { id, userId },
+					data,
+				});
+
+				if (result.count === 0) {
+					return null;
+				}
+
+				const transaction =
+					await this.prisma.personalTransaction.findUniqueOrThrow({
+						where: { id },
+						include: transactionInclude,
+					});
 
 				return mapTransaction(transaction);
 			},
@@ -189,6 +226,14 @@ function toCents(amount: number): number {
 function toNumber(value: { toNumber: () => number } | number): number {
 	return typeof value === "number" ? value : value.toNumber();
 }
+
+const transactionInclude = {
+	account: {
+		select: {
+			name: true,
+		},
+	},
+};
 
 function mapTransaction(
 	transaction: {

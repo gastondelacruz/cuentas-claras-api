@@ -4,6 +4,7 @@ import { GetMeSummaryUseCase } from "./application/use-cases/get-me-summary.use-
 import { GetPersonalTransactionsSummaryUseCase } from "./application/use-cases/get-personal-transactions-summary.use-case";
 import { ListMyAccountsUseCase } from "./application/use-cases/list-my-accounts.use-case";
 import { ListPersonalTransactionsUseCase } from "./application/use-cases/list-personal-transactions.use-case";
+import { UpdatePersonalTransactionUseCase } from "./application/use-cases/update-personal-transaction.use-case";
 import { AccountsRepository } from "./domain/ports/accounts.repository";
 import { MeSummaryRepository } from "./domain/ports/me-summary.repository";
 import { PersonalTransactionsRepository } from "./domain/ports/personal-transactions.repository";
@@ -20,6 +21,7 @@ import { PrismaPersonalTransactionsRepository } from "./infrastructure/persisten
 		ListPersonalTransactionsUseCase,
 		GetPersonalTransactionsSummaryUseCase,
 		CreatePersonalTransactionUseCase,
+		UpdatePersonalTransactionUseCase,
 		PrismaMeSummaryRepository,
 		PrismaAccountsRepository,
 		PrismaPersonalTransactionsRepository,

@@ -50,6 +50,12 @@ export class PersonalTransactionsMapper {
 		return PersonalTransactionsMapper.toResponseDto(transaction);
 	}
 
+	static toUpdateResponseDto(
+		transaction: PersonalTransaction,
+	): CreatePersonalTransactionResponseDto {
+		return PersonalTransactionsMapper.toResponseDto(transaction);
+	}
+
 	static toSummaryResponseDto(
 		output: GetPersonalTransactionsSummaryOutput,
 	): PersonalTransactionsSummaryResponseDto {

@@ -31,6 +31,7 @@ import { GetMeSummaryUseCase } from "../me/application/use-cases/get-me-summary.
 import { GetPersonalTransactionsSummaryUseCase } from "../me/application/use-cases/get-personal-transactions-summary.use-case";
 import { ListMyAccountsUseCase } from "../me/application/use-cases/list-my-accounts.use-case";
 import { ListPersonalTransactionsUseCase } from "../me/application/use-cases/list-personal-transactions.use-case";
+import { UpdatePersonalTransactionUseCase } from "../me/application/use-cases/update-personal-transaction.use-case";
 import { MeController } from "../me/infrastructure/http/me.controller";
 
 type OpenApiSchema = {
@@ -88,6 +89,7 @@ describe("global Swagger response contract", () => {
 				{ provide: ListMyAccountsUseCase, useValue: executeMock },
 				{ provide: ListPersonalTransactionsUseCase, useValue: executeMock },
 				{ provide: CreatePersonalTransactionUseCase, useValue: executeMock },
+				{ provide: UpdatePersonalTransactionUseCase, useValue: executeMock },
 			],
 		}).compile();
 
@@ -248,6 +250,61 @@ describe("global Swagger response contract", () => {
 			"201",
 			"#/components/schemas/CreatePersonalTransactionResponseDto",
 		);
+		expectEnvelopeDataRef(
+			"/api/v1/me/personal-transactions/{transactionId}",
+			"patch",
+			"200",
+			"#/components/schemas/CreatePersonalTransactionResponseDto",
+		);
+	});
+
+	it("documents the update-personal-transaction request body, path parameter, and errors", () => {
+		const operation = document.paths[
+			"/api/v1/me/personal-transactions/{transactionId}"
+		]?.patch;
+		const schema = document.components?.schemas
+			?.UpdatePersonalTransactionRequestDto as OpenApiSchema | undefined;
+
+		expect(operation).toBeDefined();
+		expect(operation?.security).toEqual([{ bearer: [] }]);
+		expect(operation?.parameters).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					in: "path",
+					name: "transactionId",
+					required: true,
+					description: expect.any(String),
+				}),
+			]),
+		);
+		expect(operation?.requestBody?.content?.["application/json"]?.schema).toEqual({
+			$ref: "#/components/schemas/UpdatePersonalTransactionRequestDto",
+		});
+		expect(operation?.responses).toMatchObject({
+			400: expect.any(Object),
+			401: expect.any(Object),
+			404: expect.any(Object),
+		});
+
+		expect(schema).toBeDefined();
+		expect(schema?.required).toBeUndefined();
+		const properties = schema?.properties ?? {};
+		for (const key of [
+			"type",
+			"amount",
+			"currency",
+			"category",
+			"accountId",
+			"occurredAt",
+			"note",
+		]) {
+			expect(properties[key]?.description, `${key} description`).toBeTruthy();
+			expect(properties[key]?.example, `${key} example`).toBeDefined();
+		}
+		expect((properties.type as OpenApiSchema & { enum?: string[] }).enum).toEqual([
+			"expense",
+			"income",
+		]);
 	});
 
 	it("documents personal-transactions query parameters with enums and descriptions", () => {
