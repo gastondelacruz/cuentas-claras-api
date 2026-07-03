@@ -643,6 +643,149 @@ describe("Personal transactions endpoint (e2e)", () => {
 		});
 	});
 
+	it("PATCH /api/v1/me/personal-transactions/:transactionId updates a transaction owned by the authenticated user", async () => {
+		const transaction = await createTransaction({ type: "expense", amount: 100 });
+
+		await new Promise((resolve) => setTimeout(resolve, 10));
+
+		const response = await request(app.getHttpServer())
+			.patch(`/api/v1/me/personal-transactions/${transaction.id}`)
+			.send({
+				amount: 250,
+				category: "Ocio",
+				note: "Taxi",
+			})
+			.expect(200);
+
+		expect(response.body.data).toMatchObject({
+			id: transaction.id,
+			type: "expense",
+			amount: 250,
+			currency: "ARS",
+			category: "Ocio",
+			accountId: DEV_DEFAULT_ACCOUNT_ID,
+			accountName: "Cuenta principal",
+			note: "Taxi",
+		});
+		expect(response.body.data.createdAt).toEqual(expect.any(String));
+		expect(response.body.data.updatedAt).toEqual(expect.any(String));
+
+		const createdAt = new Date(response.body.data.createdAt).getTime();
+		const updatedAt = new Date(response.body.data.updatedAt).getTime();
+		expect(updatedAt).toBeGreaterThan(createdAt);
+	});
+
+	it("PATCH /api/v1/me/personal-transactions/:transactionId allows setting note to null", async () => {
+		const transaction = await createTransaction({
+			type: "expense",
+			amount: 100,
+			note: "Original note",
+		});
+
+		const response = await request(app.getHttpServer())
+			.patch(`/api/v1/me/personal-transactions/${transaction.id}`)
+			.send({ note: null })
+			.expect(200);
+
+		expect(response.body.data.note).toBeNull();
+	});
+
+	it("PATCH /api/v1/me/personal-transactions/:transactionId returns 400 for invalid body", async () => {
+		const transaction = await createTransaction({ type: "expense", amount: 100 });
+
+		const response = await request(app.getHttpServer())
+			.patch(`/api/v1/me/personal-transactions/${transaction.id}`)
+			.send({ amount: 0 })
+			.expect(400);
+
+		expect(response.body.error).toMatchObject({
+			code: "VALIDATION_ERROR",
+			statusCode: 400,
+		});
+	});
+
+	it("PATCH /api/v1/me/personal-transactions/:transactionId returns 400 when type is not a valid enum value", async () => {
+		const transaction = await createTransaction({ type: "expense", amount: 100 });
+
+		const response = await request(app.getHttpServer())
+			.patch(`/api/v1/me/personal-transactions/${transaction.id}`)
+			.send({ type: "not-a-real-type" })
+			.expect(400);
+
+		expect(response.body.error).toMatchObject({
+			code: "VALIDATION_ERROR",
+			statusCode: 400,
+		});
+	});
+
+	it("PATCH /api/v1/me/personal-transactions/:transactionId returns 400 when note exceeds 200 characters", async () => {
+		const transaction = await createTransaction({ type: "expense", amount: 100 });
+
+		const response = await request(app.getHttpServer())
+			.patch(`/api/v1/me/personal-transactions/${transaction.id}`)
+			.send({ note: "a".repeat(201) })
+			.expect(400);
+
+		expect(response.body.error).toMatchObject({
+			code: "VALIDATION_ERROR",
+			statusCode: 400,
+		});
+	});
+
+	it("PATCH /api/v1/me/personal-transactions/:transactionId returns 401 without a valid JWT", async () => {
+		const transaction = await createTransaction({ type: "expense", amount: 100 });
+
+		await request(app.getHttpServer())
+			.patch(`/api/v1/me/personal-transactions/${transaction.id}`)
+			.set("x-skip-test-auth", "1")
+			.send({ amount: 250 })
+			.expect(401);
+	});
+
+	it("PATCH /api/v1/me/personal-transactions/:transactionId returns 404 when the transaction does not exist", async () => {
+		const response = await request(app.getHttpServer())
+			.patch("/api/v1/me/personal-transactions/00000000-0000-0000-0000-000000000999")
+			.send({ amount: 250 })
+			.expect(404);
+
+		expect(response.body.error).toMatchObject({
+			code: "PERSONAL_TX_NOT_FOUND",
+			statusCode: 404,
+		});
+	});
+
+	it("PATCH /api/v1/me/personal-transactions/:transactionId protects transactions owned by other users", async () => {
+		const otherUser = await registerAndLogin(app);
+		const otherAccount = await prisma.account.findFirstOrThrow({
+			where: {
+				userId: otherUser.userId,
+				isDefault: true,
+				archivedAt: null,
+			},
+		});
+		const foreignTransaction = await prisma.personalTransaction.create({
+			data: {
+				userId: otherUser.userId,
+				accountId: otherAccount.id,
+				type: "expense",
+				amount: "999",
+				currency: "ARS",
+				category: "Alimentación",
+				occurredAt: new Date("2026-06-29T10:00:00.000Z"),
+			},
+		});
+
+		const response = await request(app.getHttpServer())
+			.patch(`/api/v1/me/personal-transactions/${foreignTransaction.id}`)
+			.send({ amount: 250 })
+			.expect(404);
+
+		expect(response.body.error).toMatchObject({
+			code: "PERSONAL_TX_NOT_FOUND",
+			statusCode: 404,
+		});
+	});
+
 	it("GET /api/v1/me/personal-transactions returns 401 without a valid JWT", async () => {
 		await request(app.getHttpServer())
 			.get("/api/v1/me/personal-transactions")

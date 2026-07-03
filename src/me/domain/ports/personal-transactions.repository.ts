@@ -24,6 +24,16 @@ export type CreatePersonalTransactionInput = {
 	note?: string | null;
 };
 
+export type UpdatePersonalTransactionData = {
+	accountId?: string;
+	type?: string;
+	amount?: number;
+	currency?: string;
+	category?: string;
+	occurredAt?: Date;
+	note?: string | null;
+};
+
 export type PersonalTransactionFilters = {
 	userId: string;
 	type?: string;
@@ -57,6 +67,10 @@ export type FindFilteredPersonalTransactionsResult = {
 };
 
 export abstract class PersonalTransactionsRepository {
+	abstract findByIdAndUserId(
+		id: string,
+		userId: string,
+	): Promise<PersonalTransaction | null>;
 	abstract findFiltered(
 		filters: PersonalTransactionFilters,
 	): Promise<FindFilteredPersonalTransactionsResult>;
@@ -66,4 +80,9 @@ export abstract class PersonalTransactionsRepository {
 	abstract create(
 		data: CreatePersonalTransactionInput,
 	): Promise<PersonalTransaction>;
+	abstract update(
+		id: string,
+		userId: string,
+		data: UpdatePersonalTransactionData,
+	): Promise<PersonalTransaction | null>;
 }
