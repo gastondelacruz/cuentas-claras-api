@@ -1,5 +1,8 @@
 import type { GroupLedger } from "../ports/group.repository";
-import { calculateGroupBalances } from "./balance-calculator";
+import {
+	calculateGroupBalances,
+	calculateMemberBalance,
+} from "./balance-calculator";
 
 describe("calculateGroupBalances", () => {
 	it("returns an empty list when there is no activity", () => {
@@ -108,5 +111,83 @@ describe("calculateGroupBalances", () => {
 			"Ana",
 			"Carla",
 		]);
+	});
+});
+
+describe("calculateMemberBalance", () => {
+	it("returns the negative balance for a member who owes money", () => {
+		const ledger: GroupLedger = {
+			members: [
+				{ memberId: "gaston", displayName: "Gaston" },
+				{ memberId: "cami", displayName: "cami.iriso" },
+			],
+			splits: [
+				{ memberId: "cami", netAmount: 250670, currency: "ARS" },
+				{ memberId: "gaston", netAmount: -250670, currency: "ARS" },
+			],
+			settlements: [],
+		};
+
+		expect(calculateMemberBalance(ledger, "gaston", "ARS")).toBe(-250670);
+	});
+
+	it("returns the positive balance for a member owed money", () => {
+		const ledger: GroupLedger = {
+			members: [
+				{ memberId: "gaston", displayName: "Gaston" },
+				{ memberId: "test", displayName: "test" },
+			],
+			splits: [
+				{ memberId: "gaston", netAmount: 500, currency: "ARS" },
+				{ memberId: "test", netAmount: -500, currency: "ARS" },
+			],
+			settlements: [],
+		};
+
+		expect(calculateMemberBalance(ledger, "gaston", "ARS")).toBe(500);
+	});
+
+	it("returns zero when the member has no activity in the currency", () => {
+		const ledger: GroupLedger = {
+			members: [{ memberId: "gaston", displayName: "Gaston" }],
+			splits: [],
+			settlements: [],
+		};
+
+		expect(calculateMemberBalance(ledger, "gaston", "ARS")).toBe(0);
+	});
+
+	it("returns zero when the member has no balance in the requested currency", () => {
+		const ledger: GroupLedger = {
+			members: [{ memberId: "gaston", displayName: "Gaston" }],
+			splits: [{ memberId: "gaston", netAmount: 100, currency: "USD" }],
+			settlements: [],
+		};
+
+		expect(calculateMemberBalance(ledger, "gaston", "ARS")).toBe(0);
+	});
+
+	it("applies settlements with the same sign convention as the balances endpoint", () => {
+		const ledger: GroupLedger = {
+			members: [
+				{ memberId: "debtor", displayName: "Ana" },
+				{ memberId: "creditor", displayName: "Gaston" },
+			],
+			splits: [
+				{ memberId: "creditor", netAmount: 15000, currency: "ARS" },
+				{ memberId: "debtor", netAmount: -15000, currency: "ARS" },
+			],
+			settlements: [
+				{
+					fromMemberId: "debtor",
+					toMemberId: "creditor",
+					amount: 15000,
+					currency: "ARS",
+				},
+			],
+		};
+
+		expect(calculateMemberBalance(ledger, "creditor", "ARS")).toBe(0);
+		expect(calculateMemberBalance(ledger, "debtor", "ARS")).toBe(0);
 	});
 });

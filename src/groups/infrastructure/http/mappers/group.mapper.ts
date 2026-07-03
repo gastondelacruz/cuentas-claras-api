@@ -16,6 +16,7 @@ import type {
 	RecordSettlementPaymentInput,
 	RecordSettlementPaymentResult,
 } from "../../../application/use-cases/record-settlement-payment.use-case";
+import type { GroupListItem } from "../../../application/use-cases/list-groups.use-case";
 
 export class GroupMapper {
 	static toDomain(dto: CreateGroupRequestDto): GroupEntity {
@@ -69,12 +70,15 @@ export class GroupMapper {
 		};
 	}
 
-	static toListResponseDto(group: GroupEntity): CreateGroupResponseDto {
+	static toListResponseDto(item: GroupListItem): CreateGroupResponseDto {
+		const { group } = item;
+
 		return {
 			id: group.id,
 			name: group.name.getValue(),
 			description: group.description,
 			currency: group.currency.getValue(),
+			currentUserBalance: item.currentUserBalance,
 			createdAt: group.createdAt?.toISOString(),
 			updatedAt: group.updatedAt?.toISOString(),
 		};

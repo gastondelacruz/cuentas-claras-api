@@ -3,6 +3,10 @@ import { GroupType as PrismaGroupType, type Prisma } from "@prisma/client";
 import type {
 	GroupMemberRef,
 	GroupLedger,
+	GroupLedgerMember,
+	GroupLedgerSettlement,
+	GroupLedgerSplit,
+	GroupWithLedger,
 	RecordSettlementPaymentPayload,
 	SettlementPaymentRef,
 	UpdateGroupPayload,
@@ -111,44 +115,146 @@ export class PrismaGroupRepository extends GroupRepository {
 		);
 	}
 
-	async listByUser(userId: string): Promise<GroupEntity[]> {
+	async listByUserWithLedgers(userId: string): Promise<GroupWithLedger[]> {
 		return this.runDatabaseOperation("GROUP_LIST_DATABASE_ERROR", async () => {
 			const groups = await this.prisma.group.findMany({
-			where: {
-				archivedAt: null,
-        groupMembers: {
-          some: {
-            userId,
-            removedAt: null,
-          },
-        },
-      },
-      select: {
-        id: true,
-        name: true,
-        type: true,
-        description: true,
-        currency: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-      orderBy: {
-        updatedAt: "desc",
-			},
-		});
+				where: {
+					archivedAt: null,
+					groupMembers: {
+						some: {
+							userId,
+							removedAt: null,
+						},
+					},
+				},
+				select: {
+					id: true,
+					name: true,
+					type: true,
+					description: true,
+					currency: true,
+					createdAt: true,
+					updatedAt: true,
+				},
+				orderBy: {
+					updatedAt: "desc",
+				},
+			});
 
-			return groups.map(
-				(group) =>
-					new GroupEntity({
-						id: group.id,
-						name: group.name,
-						description: group.description,
-						type: fromPrismaGroupType(group.type),
-						currency: group.currency,
-						createdAt: group.createdAt,
-						updatedAt: group.updatedAt,
+			if (groups.length === 0) {
+				return [];
+			}
+
+			const groupIds = groups.map((group) => group.id);
+
+			const [currentUserMembers, members, splits, settlements] =
+				await Promise.all([
+					this.prisma.groupMember.findMany({
+						where: {
+							groupId: { in: groupIds },
+							userId,
+							removedAt: null,
+						},
+						select: {
+							id: true,
+							groupId: true,
+						},
 					}),
-			);
+					this.prisma.groupMember.findMany({
+						where: {
+							groupId: { in: groupIds },
+						},
+						select: {
+							id: true,
+							groupId: true,
+							displayName: true,
+						},
+					}),
+					this.prisma.expenseSplit.findMany({
+						where: {
+							expense: {
+								groupId: { in: groupIds },
+								deletedAt: null,
+							},
+						},
+						select: {
+							memberId: true,
+							netAmount: true,
+							expense: {
+								select: {
+									groupId: true,
+									currency: true,
+								},
+							},
+						},
+					}),
+					this.prisma.settlementPayment.findMany({
+						where: {
+							groupId: { in: groupIds },
+							deletedAt: null,
+						},
+						select: {
+							groupId: true,
+							fromMemberId: true,
+							toMemberId: true,
+							amount: true,
+							currency: true,
+						},
+					}),
+				]);
+
+			const currentUserMemberByGroup = new Map<string, string>();
+			for (const member of currentUserMembers) {
+				currentUserMemberByGroup.set(member.groupId, member.id);
+			}
+
+			const membersByGroup = new Map<string, GroupLedgerMember[]>();
+			for (const member of members) {
+				const list = membersByGroup.get(member.groupId) ?? [];
+				list.push({ memberId: member.id, displayName: member.displayName });
+				membersByGroup.set(member.groupId, list);
+			}
+
+			const splitsByGroup = new Map<string, GroupLedgerSplit[]>();
+			for (const split of splits) {
+				const list = splitsByGroup.get(split.expense.groupId) ?? [];
+				list.push({
+					memberId: split.memberId,
+					netAmount: decimalToNumber(split.netAmount),
+					currency: split.expense.currency,
+				});
+				splitsByGroup.set(split.expense.groupId, list);
+			}
+
+			const settlementsByGroup = new Map<string, GroupLedgerSettlement[]>();
+			for (const settlement of settlements) {
+				const list = settlementsByGroup.get(settlement.groupId) ?? [];
+				list.push({
+					fromMemberId: settlement.fromMemberId,
+					toMemberId: settlement.toMemberId,
+					amount: decimalToNumber(settlement.amount),
+					currency: settlement.currency,
+				});
+				settlementsByGroup.set(settlement.groupId, list);
+			}
+
+			return groups.map((group) => ({
+				group: new GroupEntity({
+					id: group.id,
+					name: group.name,
+					description: group.description,
+					type: fromPrismaGroupType(group.type),
+					currency: group.currency,
+					createdAt: group.createdAt,
+					updatedAt: group.updatedAt,
+				}),
+				currentUserMemberId: currentUserMemberByGroup.get(group.id) ?? "",
+				ledger: {
+					members: membersByGroup.get(group.id) ?? [],
+					splits: splitsByGroup.get(group.id) ?? [],
+					settlements: settlementsByGroup.get(group.id) ?? [],
+				},
+			}));
 		});
 	}
 
