@@ -374,8 +374,180 @@ describe("Groups endpoints (e2e)", () => {
 			name: expect.any(String),
 			description: expect.toBeOneOf([expect.any(String), null]),
 			currency: expect.any(String),
+			currentUserBalance: 0,
 			createdAt: expect.any(String),
 			updatedAt: expect.any(String),
+		});
+	});
+
+	it("GET /api/v1/groups returns the signed currentUserBalance for the authenticated user", async () => {
+		const group = await prisma.group.create({
+			data: {
+				ownerUserId: DEV_USER_ID,
+				name: "Viaje A Europa",
+				currency: "ARS",
+			},
+		});
+
+		const gaston = await prisma.groupMember.create({
+			data: {
+				groupId: group.id,
+				userId: DEV_USER_ID,
+				displayName: "Gaston",
+				email: DEV_USER_EMAIL,
+			},
+		});
+
+		const cami = await prisma.groupMember.create({
+			data: {
+				groupId: group.id,
+				userId: null,
+				displayName: "cami.iriso",
+				email: "cami@example.com",
+			},
+		});
+
+		// cami paid an expense split equally: Gaston owes cami 250670.
+		const expense = await prisma.expense.create({
+			data: {
+				groupId: group.id,
+				title: "Hotel",
+				amount: "501340.00",
+				currency: "ARS",
+				paidByMemberId: cami.id,
+				splitType: "EQUAL",
+				expenseDate: new Date("2026-06-27T00:00:00.000Z"),
+			},
+		});
+
+		await prisma.expenseSplit.createMany({
+			data: [
+				{
+					expenseId: expense.id,
+					memberId: cami.id,
+					owedAmount: "250670.00",
+					paidAmount: "501340.00",
+					netAmount: "250670.00",
+				},
+				{
+					expenseId: expense.id,
+					memberId: gaston.id,
+					owedAmount: "250670.00",
+					paidAmount: "0.00",
+					netAmount: "-250670.00",
+				},
+			],
+		});
+
+		const response = await request(app.getHttpServer())
+			.get("/api/v1/groups")
+			.expect(200);
+
+		expect(response.body.data).toHaveLength(1);
+		expect(response.body.data[0]).toMatchObject({
+			id: group.id,
+			name: "Viaje A Europa",
+			currency: "ARS",
+			currentUserBalance: -250670,
+		});
+	});
+
+	it("GET /api/v1/groups returns a positive currentUserBalance when others owe the user", async () => {
+		const group = await prisma.group.create({
+			data: {
+				ownerUserId: DEV_USER_ID,
+				name: "Nuevo Grupo",
+				currency: "ARS",
+			},
+		});
+
+		const gaston = await prisma.groupMember.create({
+			data: {
+				groupId: group.id,
+				userId: DEV_USER_ID,
+				displayName: "Gaston",
+				email: DEV_USER_EMAIL,
+			},
+		});
+
+		const test = await prisma.groupMember.create({
+			data: {
+				groupId: group.id,
+				userId: null,
+				displayName: "test",
+				email: "test@example.com",
+			},
+		});
+
+		const expense = await prisma.expense.create({
+			data: {
+				groupId: group.id,
+				title: "Dinner",
+				amount: "1000.00",
+				currency: "ARS",
+				paidByMemberId: gaston.id,
+				splitType: "EQUAL",
+				expenseDate: new Date("2026-06-27T00:00:00.000Z"),
+			},
+		});
+
+		await prisma.expenseSplit.createMany({
+			data: [
+				{
+					expenseId: expense.id,
+					memberId: gaston.id,
+					owedAmount: "500.00",
+					paidAmount: "1000.00",
+					netAmount: "500.00",
+				},
+				{
+					expenseId: expense.id,
+					memberId: test.id,
+					owedAmount: "500.00",
+					paidAmount: "0.00",
+					netAmount: "-500.00",
+				},
+			],
+		});
+
+		const response = await request(app.getHttpServer())
+			.get("/api/v1/groups")
+			.expect(200);
+
+		expect(response.body.data).toHaveLength(1);
+		expect(response.body.data[0]).toMatchObject({
+			id: group.id,
+			name: "Nuevo Grupo",
+			currentUserBalance: 500,
+		});
+	});
+
+	it("GET /api/v1/groups returns currentUserBalance 0 when the user is settled", async () => {
+		const group = await prisma.group.create({
+			data: {
+				ownerUserId: DEV_USER_ID,
+				name: "Settled Group",
+				currency: "ARS",
+			},
+		});
+
+		await prisma.groupMember.create({
+			data: {
+				groupId: group.id,
+				userId: DEV_USER_ID,
+				displayName: "Gaston",
+				email: DEV_USER_EMAIL,
+			},
+		});
+
+		const response = await request(app.getHttpServer())
+			.get("/api/v1/groups")
+			.expect(200);
+
+		expect(response.body.data).toHaveLength(1);
+		expect(response.body.data[0]).toMatchObject({
+			id: group.id,
+			currentUserBalance: 0,
 		});
 	});
 

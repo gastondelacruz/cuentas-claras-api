@@ -67,8 +67,8 @@ export class GroupsController {
 	async list(
 		@CurrentUser("userId") userId: string,
 	): Promise<CreateGroupResponseDto[]> {
-		const groups = await this.listGroupsUseCase.execute(userId);
-		return groups.map((group) => GroupMapper.toListResponseDto(group));
+		const items = await this.listGroupsUseCase.execute(userId);
+		return items.map((item) => GroupMapper.toListResponseDto(item));
 	}
 
 	@Get(":groupId")

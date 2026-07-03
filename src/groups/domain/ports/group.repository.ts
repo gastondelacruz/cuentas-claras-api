@@ -38,6 +38,12 @@ export type GroupLedger = {
 	settlements: GroupLedgerSettlement[];
 };
 
+export type GroupWithLedger = {
+	group: GroupEntity;
+	currentUserMemberId: string;
+	ledger: GroupLedger;
+};
+
 export type SettlementPaymentRef = {
 	id: string;
 	groupId: string;
@@ -69,7 +75,7 @@ export type RecordSettlementPaymentPayload = {
 export abstract class GroupRepository {
 	abstract createForUser(userId: string, payload: GroupEntity): Promise<GroupEntity>;
 
-	abstract listByUser(userId: string): Promise<GroupEntity[]>;
+	abstract listByUserWithLedgers(userId: string): Promise<GroupWithLedger[]>;
 
 	abstract findDetailByIdAndOwner(
 		groupId: string,

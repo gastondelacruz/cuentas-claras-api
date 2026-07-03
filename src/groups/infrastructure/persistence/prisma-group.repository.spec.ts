@@ -10,15 +10,17 @@ describe("PrismaGroupRepository", () => {
 		};
 		const repository = new PrismaGroupRepository(prisma as never);
 
-		await expect(repository.listByUser("user-1")).rejects.toMatchObject({
+		await expect(
+			repository.listByUserWithLedgers("user-1"),
+		).rejects.toMatchObject({
 			code: "GROUP_LIST_DATABASE_ERROR",
 			message: "A database error occurred.",
 			statusCode: 500,
 			type: "database",
 		});
-		await expect(repository.listByUser("user-1")).rejects.toBeInstanceOf(
-			DatabaseException,
-		);
+		await expect(
+			repository.listByUserWithLedgers("user-1"),
+		).rejects.toBeInstanceOf(DatabaseException);
 	});
 
 	it("wraps create transaction failures in a safe DatabaseException", async () => {

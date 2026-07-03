@@ -76,6 +76,28 @@ export function calculateGroupBalances(ledger: GroupLedger): MemberBalance[] {
 	return balances;
 }
 
+/**
+ * Resolves the signed balance of a single member in a given currency.
+ *
+ * Reuses {@link calculateGroupBalances} so the sign convention is identical to
+ * the group balances endpoint:
+ * - Positive: other members owe money to this member.
+ * - Negative: this member owes money to other members.
+ * - Zero: the member is settled (or has no activity in that currency).
+ */
+export function calculateMemberBalance(
+	ledger: GroupLedger,
+	memberId: string,
+	currency: string,
+): number {
+	const balances = calculateGroupBalances(ledger);
+	const memberBalance = balances.find(
+		(balance) => balance.memberId === memberId && balance.currency === currency,
+	);
+
+	return memberBalance?.balance ?? 0;
+}
+
 function toCents(amount: number): number {
 	return Math.round(amount * 100);
 }
