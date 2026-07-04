@@ -9,7 +9,7 @@ Operational guide for AI agents and humans working in this repo. Read this **bef
 3. For architecture-sensitive changes, read `.agents/skills/project-architecture/SKILL.md`.
 4. For new features, bug fixes, or test-impacting work, read `.agents/skills/project-tdd-testing/SKILL.md`.
 5. Write or modify code following the [Conventions](#conventions).
-6. Verify with `npm test` and, when HTTP/DB behavior changes, `npm run test:e2e`.
+6. Finish feature work with `npm run verify` when practical. If the full verify flow is not practical, run and report the closest subset (`npm test`, `npm run test:e2e`, `npm run security:audit`).
 
 ## Interaction rules
 
@@ -59,6 +59,8 @@ Keep these repo-specific operational notes in mind:
 | `npm run test:watch` | Run tests in watch mode during development. |
 | `npm run test:cov` | Run unit tests with V8 coverage output in `./coverage`. |
 | `npm run test:e2e` | Run E2E tests (`test/**/*.e2e-spec.ts`) serially against the real app + DB. |
+| `npm run security:audit` | Run the dependency vulnerability gate with `audit-ci`. |
+| `npm run verify` | Run unit tests, E2E tests, and the security audit in the same order used by CI. |
 
 Key notes:
 
@@ -145,4 +147,5 @@ gentle-ai skill-registry refresh --force
 - [ ] Tabs, double quotes, `kebab-case.<role>.ts` names.
 - [ ] Added or updated tests and `npm test` passes.
 - [ ] If HTTP/DB flow changed, `npm run test:e2e` passes.
+- [ ] Before finishing a feature, `npm run verify` passes or any skipped/failing part is reported with the exact command and result.
 - [ ] No secrets are committed (`.env` is in `.gitignore`).

@@ -15,7 +15,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:cov": "vitest run --coverage",
-    "test:e2e": "vitest run --config ./vitest.config.e2e.ts"
+    "test:e2e": "vitest run --config ./vitest.config.e2e.ts",
+    "security:audit": "audit-ci --config ./audit-ci.jsonc",
+    "verify": "npm test && npm run test:e2e && npm run security:audit"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.24",
@@ -52,6 +54,7 @@
     "@types/pg": "^8.20.0",
     "@types/supertest": "^7.2.0",
     "@vitest/coverage-v8": "^4.1.8",
+    "audit-ci": "^7.1.0",
     "prisma": "^7.8.0",
     "supertest": "^7.2.2",
     "ts-loader": "^9.6.0",
