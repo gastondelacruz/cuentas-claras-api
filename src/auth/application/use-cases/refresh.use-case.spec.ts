@@ -112,7 +112,11 @@ describe("RefreshTokenUseCase", () => {
 		expect(refreshTokens.findActiveByUserId).toHaveBeenCalledWith(userId);
 		expect(passwordHasher.verify).toHaveBeenCalledWith(rawToken, "hashed-old-token");
 		expect(refreshTokens.revoke).toHaveBeenCalledWith(existingToken.id);
-		expect(tokens.signAccessToken).toHaveBeenCalledWith({ sub: userId, email });
+		expect(tokens.signAccessToken).toHaveBeenCalledWith({
+			sub: userId,
+			email,
+			emailVerified: false,
+		});
 		expect(tokens.signRefreshToken).toHaveBeenCalledWith({ sub: userId });
 		expect(passwordHasher.hash).toHaveBeenCalledWith("new-refresh-token");
 		expect(tokenDigestService.digest).toHaveBeenCalledWith("new-refresh-token");

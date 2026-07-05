@@ -3,11 +3,14 @@ import {
 	Controller,
 	Delete,
 	Get,
+	HttpCode,
 	Param,
 	ParseUUIDPipe,
 	Patch,
 	Post,
+	UseGuards,
 } from "@nestjs/common";
+import { EmailVerifiedGuard } from "../../../auth/infrastructure/security/email-verified.guard";
 import {
 	ApiBearerAuth,
 	ApiTags,
@@ -18,6 +21,7 @@ import {
 	ApiOkDataResponse,
 } from "../../../shared/swagger/api-envelope-response.decorator";
 import { ArchiveGroupUseCase } from "../../application/use-cases/archive-group.use-case";
+import { AcceptGroupInvitationUseCase } from "../../application/use-cases/accept-group-invitation.use-case";
 import { CreateGroupUseCase } from "../../application/use-cases/create-group.use-case";
 import { GetGroupBalancesUseCase } from "../../application/use-cases/get-group-balances.use-case";
 import { GetGroupDetailUseCase } from "../../application/use-cases/get-group-detail.use-case";
@@ -26,6 +30,7 @@ import { ListGroupsUseCase } from "../../application/use-cases/list-groups.use-c
 import { RecordSettlementPaymentUseCase } from "../../application/use-cases/record-settlement-payment.use-case";
 import { UpdateGroupUseCase } from "../../application/use-cases/update-group.use-case";
 import { CreateGroupRequestDto } from "./dto/create-group-request.dto";
+import { AcceptGroupInvitationRequestDto } from "./dto/accept-group-invitation-request.dto";
 import { UpdateGroupDto } from "./dto/update-group.dto";
 import { GroupMapper } from "./mappers/group.mapper";
 import {
@@ -38,6 +43,7 @@ import { RecordSettlementPaymentResponseDto } from "./dto/record-settlement-paym
 
 @ApiTags("groups")
 @ApiBearerAuth()
+@UseGuards(EmailVerifiedGuard)
 @Controller("api/v1/groups")
 export class GroupsController {
 	constructor(
@@ -46,6 +52,7 @@ export class GroupsController {
 		private readonly getGroupDetailUseCase: GetGroupDetailUseCase,
 		private readonly updateGroupUseCase: UpdateGroupUseCase,
 		private readonly archiveGroupUseCase: ArchiveGroupUseCase,
+		private readonly acceptGroupInvitationUseCase: AcceptGroupInvitationUseCase,
 		private readonly getGroupBalancesUseCase: GetGroupBalancesUseCase,
 		private readonly getGroupSettlementsUseCase: GetGroupSettlementsUseCase,
 		private readonly recordSettlementPaymentUseCase: RecordSettlementPaymentUseCase,
@@ -139,5 +146,17 @@ export class GroupsController {
 	): Promise<CreateGroupResponseDto> {
 		const group = await this.archiveGroupUseCase.execute(userId, groupId);
 		return GroupMapper.toArchiveResponseDto(group);
+	}
+
+	@Post("invitations/accept")
+	@HttpCode(204)
+	async acceptInvitation(
+		@CurrentUser("userId") userId: string,
+		@Body() body: AcceptGroupInvitationRequestDto,
+	): Promise<void> {
+		await this.acceptGroupInvitationUseCase.execute({
+			userId,
+			token: body.token,
+		});
 	}
 }

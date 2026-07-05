@@ -20,14 +20,15 @@ export class PrismaAuthUserRepository extends AuthUserRepository {
 		return this.runDatabaseOperation("AUTH_USER_FIND_DATABASE_ERROR", () =>
 			this.prisma.user.findUnique({
 				where: { id },
-				select: {
-					id: true,
-					name: true,
-					email: true,
-				},
-			}),
-		);
-	}
+					select: {
+						id: true,
+						name: true,
+						email: true,
+						emailVerifiedAt: true,
+					},
+				}),
+			);
+		}
 
 	findByEmail(email: string): Promise<AuthUser | null> {
 		return this.runDatabaseOperation("AUTH_USER_FIND_DATABASE_ERROR", () =>
@@ -35,28 +36,30 @@ export class PrismaAuthUserRepository extends AuthUserRepository {
 				where: {
 					email,
 				},
-				select: {
-					id: true,
-					name: true,
-					email: true,
-				},
-			}),
-		);
-	}
+					select: {
+						id: true,
+						name: true,
+						email: true,
+						emailVerifiedAt: true,
+					},
+				}),
+			);
+		}
 
 	findByEmailForLogin(email: string): Promise<AuthLoginUser | null> {
 		return this.runDatabaseOperation("AUTH_USER_FIND_DATABASE_ERROR", () =>
 			this.prisma.user.findUnique({
 				where: { email },
-				select: {
-					id: true,
-					name: true,
-					email: true,
-					passwordHash: true,
-				},
-			}),
-		);
-	}
+					select: {
+						id: true,
+						name: true,
+						email: true,
+						passwordHash: true,
+						emailVerifiedAt: true,
+					},
+				}),
+			);
+		}
 
 	createWithPassword(input: CreateUserWithPasswordInput): Promise<AuthUser> {
 		return this.runDatabaseOperation("AUTH_USER_CREATE_DATABASE_ERROR", () =>
@@ -66,14 +69,15 @@ export class PrismaAuthUserRepository extends AuthUserRepository {
 					email: input.email,
 					passwordHash: input.passwordHash,
 				},
-				select: {
-					id: true,
-					name: true,
-					email: true,
-				},
-			}),
-		);
-	}
+					select: {
+						id: true,
+						name: true,
+						email: true,
+						emailVerifiedAt: true,
+					},
+				}),
+			);
+		}
 
 	createUserWithDefaultAccount(
 		input: CreateUserWithPasswordInput,
@@ -87,12 +91,13 @@ export class PrismaAuthUserRepository extends AuthUserRepository {
 						email: input.email,
 						passwordHash: input.passwordHash,
 					},
-					select: {
-						id: true,
-						name: true,
-						email: true,
-					},
-				});
+						select: {
+							id: true,
+							name: true,
+							email: true,
+							emailVerifiedAt: true,
+						},
+					});
 
 				await tx.account.create({
 					data: {
@@ -105,6 +110,21 @@ export class PrismaAuthUserRepository extends AuthUserRepository {
 				});
 
 				return user;
+			}),
+		);
+	}
+
+	markEmailVerified(userId: string, verifiedAt: Date): Promise<AuthUser> {
+		return this.runDatabaseOperation("AUTH_USER_UPDATE_DATABASE_ERROR", () =>
+			this.prisma.user.update({
+				where: { id: userId },
+				data: { emailVerifiedAt: verifiedAt },
+				select: {
+					id: true,
+					name: true,
+					email: true,
+					emailVerifiedAt: true,
+				},
 			}),
 		);
 	}

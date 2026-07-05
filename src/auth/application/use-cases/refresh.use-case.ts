@@ -68,6 +68,7 @@ export class RefreshTokenUseCase {
 		const accessToken = await this.tokens.signAccessToken({
 			sub: user!.id,
 			email: user!.email,
+			emailVerified: user!.emailVerifiedAt !== null && user!.emailVerifiedAt !== undefined,
 		});
 		const newRefresh = await this.tokens.signRefreshToken({ sub: user!.id });
 

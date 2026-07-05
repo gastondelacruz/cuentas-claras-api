@@ -9,6 +9,11 @@ import {
 import { execSync } from "node:child_process";
 import request from "supertest";
 import { AppModule } from "../src/app.module";
+import {
+	MailDeliveryPort,
+	type GroupInvitationEmailInput,
+	type VerificationEmailInput,
+} from "../src/shared/mail/domain/ports/mail-delivery.port";
 import { HttpExceptionFilter } from "../src/shared/filters/http-exception.filter";
 import { ResponseInterceptor } from "../src/shared/interceptors/response.interceptor";
 import {
@@ -24,6 +29,7 @@ describe("Groups endpoints (e2e)", () => {
 	let app: INestApplication;
 	let postgresContainer: StartedPostgreSqlContainer;
 	let prisma: PrismaClient;
+	let mail: CapturingMailDelivery;
 
 	beforeAll(async () => {
 		postgresContainer = await new PostgreSqlContainer("postgres:17-alpine")
@@ -58,9 +64,13 @@ describe("Groups endpoints (e2e)", () => {
 		prisma = new PrismaClient({ adapter });
 		await prisma.$connect();
 
+		mail = new CapturingMailDelivery();
 		const moduleFixture: TestingModule = await Test.createTestingModule({
 			imports: [AppModule],
-		}).compile();
+		})
+			.overrideProvider(MailDeliveryPort)
+			.useValue(mail)
+			.compile();
 
 		app = moduleFixture.createNestApplication();
 		app.useGlobalPipes(
@@ -94,11 +104,22 @@ describe("Groups endpoints (e2e)", () => {
 	});
 
 	beforeEach(async () => {
+		mail.clear();
 		await prisma.expenseSplit.deleteMany();
 		await prisma.expense.deleteMany();
 		await prisma.settlementPayment.deleteMany();
+		await prisma.groupInvitationToken.deleteMany();
 		await prisma.groupMember.deleteMany();
 		await prisma.group.deleteMany();
+		await prisma.emailVerificationToken.deleteMany();
+		await prisma.refreshToken.deleteMany();
+		await prisma.account.deleteMany({
+			where: {
+				userId: {
+					not: DEV_USER_ID,
+				},
+			},
+		});
 		await prisma.user.deleteMany({
 			where: {
 				id: {
@@ -212,11 +233,12 @@ describe("Groups endpoints (e2e)", () => {
 		});
 	});
 
-	it("POST /api/v1/groups links invited members when their email belongs to an existing user", async () => {
+	it("POST /api/v1/groups keeps invited members pending even when their email belongs to an existing user", async () => {
 		const invitedUser = await prisma.user.create({
 			data: {
 				name: "Ana Existing",
 				email: "ana.existing@example.com",
+				emailVerifiedAt: new Date(),
 			},
 		});
 
@@ -243,10 +265,142 @@ describe("Groups endpoints (e2e)", () => {
 		});
 
 		expect(invitedMember).toMatchObject({
-			userId: invitedUser.id,
+			userId: null,
 			displayName: "Ana",
 			email: "ana.existing@example.com",
 		});
+		expect(invitedUser.id).toEqual(expect.any(String));
+		expect(mail.groupInvitationEmails).toHaveLength(1);
+	});
+
+	it("POST /api/v1/groups/invitations/accept links the pending member with a matching verified user", async () => {
+		const createResponse = await request(app.getHttpServer())
+			.post("/api/v1/groups")
+			.send({
+				name: "Invitation Group",
+				type: "friends",
+				currency: "ARS",
+				members: [
+					{
+						displayName: "Invitee",
+						email: "invitee@example.com",
+					},
+				],
+			})
+			.expect(201);
+		const invitee = await prisma.user.create({
+			data: {
+				name: "Invitee",
+				email: "invitee@example.com",
+				emailVerifiedAt: new Date(),
+			},
+		});
+		const token = extractToken(mail.groupInvitationEmails[0].invitationUrl);
+
+		await request(app.getHttpServer())
+			.post("/api/v1/groups/invitations/accept")
+			.set("Authorization", createBearerToken({ userId: invitee.id, email: invitee.email }))
+			.send({ token })
+			.expect(204);
+
+		const member = await prisma.groupMember.findFirstOrThrow({
+			where: {
+				groupId: createResponse.body.data.id,
+				email: "invitee@example.com",
+			},
+		});
+		const activeTokens = await prisma.groupInvitationToken.findMany({
+			where: {
+				groupMemberId: member.id,
+				consumedAt: null,
+			},
+		});
+		expect(member.userId).toBe(invitee.id);
+		expect(activeTokens).toHaveLength(0);
+	});
+
+	it("POST /api/v1/groups/invitations/accept rejects a second use of the same token", async () => {
+		await request(app.getHttpServer())
+			.post("/api/v1/groups")
+			.send({
+				name: "Single Use Group",
+				type: "friends",
+				currency: "ARS",
+				members: [
+					{
+						displayName: "Invitee",
+						email: "single-use@example.com",
+					},
+				],
+			})
+			.expect(201);
+		const invitee = await prisma.user.create({
+			data: {
+				name: "Invitee",
+				email: "single-use@example.com",
+				emailVerifiedAt: new Date(),
+			},
+		});
+		const authorization = createBearerToken({ userId: invitee.id, email: invitee.email });
+		const token = extractToken(mail.groupInvitationEmails[0].invitationUrl);
+
+		await request(app.getHttpServer())
+			.post("/api/v1/groups/invitations/accept")
+			.set("Authorization", authorization)
+			.send({ token })
+			.expect(204);
+
+		const response = await request(app.getHttpServer())
+			.post("/api/v1/groups/invitations/accept")
+			.set("Authorization", authorization)
+			.send({ token })
+			.expect(409);
+
+		expect(response.body.error).toMatchObject({
+			code: "GROUP_INVITATION_TOKEN_CONSUMED",
+			statusCode: 409,
+		});
+	});
+
+	it("PATCH /api/v1/groups invalidates older active invitation tokens for updated pending members", async () => {
+		const createResponse = await request(app.getHttpServer())
+			.post("/api/v1/groups")
+			.send({
+				name: "Update Invitation Group",
+				type: "friends",
+				currency: "ARS",
+				members: [
+					{
+						displayName: "Invitee",
+						email: "update-invitee@example.com",
+					},
+				],
+			})
+			.expect(201);
+
+		await request(app.getHttpServer())
+			.patch(`/api/v1/groups/${createResponse.body.data.id}`)
+			.send({
+				members: [
+					{
+						displayName: "Invitee",
+						email: "update-invitee@example.com",
+					},
+				],
+			})
+			.expect(200);
+
+		const member = await prisma.groupMember.findFirstOrThrow({
+			where: {
+				groupId: createResponse.body.data.id,
+				email: "update-invitee@example.com",
+			},
+		});
+		const tokens = await prisma.groupInvitationToken.findMany({
+			where: { groupMemberId: member.id },
+		});
+		expect(mail.groupInvitationEmails).toHaveLength(2);
+		expect(tokens.filter((token) => token.consumedAt === null)).toHaveLength(1);
 	});
 
 	it("POST /api/v1/auth/register keeps pending group members unlinked and hidden from the new user", async () => {
@@ -289,6 +443,11 @@ describe("Groups endpoints (e2e)", () => {
 			},
 		});
 		expect(pendingMemberAfterRegistration.userId).toBeNull();
+
+		await prisma.user.update({
+			where: { email: "new.member@example.com" },
+			data: { emailVerifiedAt: new Date() },
+		});
 
 		const listResponse = await request(app.getHttpServer())
 			.get("/api/v1/groups")
@@ -1191,11 +1350,12 @@ describe("Groups endpoints (e2e)", () => {
 		});
 	});
 
-	it("PATCH /api/v1/groups/:groupId links an existing user by email and makes the group visible to them", async () => {
+	it("PATCH /api/v1/groups/:groupId keeps an existing email user pending until invitation acceptance", async () => {
 		const invitedUser = await prisma.user.create({
 			data: {
 				name: "Invited Update User",
 				email: "invited.update@example.com",
+				emailVerifiedAt: new Date(),
 			},
 		});
 		const group = await prisma.group.create({
@@ -1236,7 +1396,7 @@ describe("Groups endpoints (e2e)", () => {
 		});
 
 		expect(linkedMember).toMatchObject({
-			userId: invitedUser.id,
+			userId: null,
 			displayName: "Invited Update User",
 			email: "invited.update@example.com",
 			removedAt: null,
@@ -1253,14 +1413,14 @@ describe("Groups endpoints (e2e)", () => {
 			)
 			.expect(200);
 
-		expect(listResponse.body.data).toEqual(
+		expect(listResponse.body.data).not.toEqual(
 			expect.arrayContaining([
 				expect.objectContaining({
 					id: group.id,
-					name: "Patch Linked Group",
 				}),
 			]),
 		);
+		expect(mail.groupInvitationEmails).toHaveLength(1);
 	});
 
 	it("PATCH /api/v1/groups/:groupId with members: [] removes all invited members but keeps the dev user", async () => {
@@ -1591,3 +1751,44 @@ describe("Groups endpoints (e2e)", () => {
 			.expect(404);
 	});
 });
+
+class CapturingMailDelivery extends MailDeliveryPort {
+	verificationEmails: VerificationEmailInput[] = [];
+	groupInvitationEmails: GroupInvitationEmailInput[] = [];
+	failVerification = false;
+	failInvitation = false;
+
+	async sendVerificationEmail(input: VerificationEmailInput): Promise<void> {
+		this.verificationEmails.push(input);
+
+		if (this.failVerification) {
+			throw new Error("verification mail failed");
+		}
+	}
+
+	async sendGroupInvitationEmail(input: GroupInvitationEmailInput): Promise<void> {
+		this.groupInvitationEmails.push(input);
+
+		if (this.failInvitation) {
+			throw new Error("invitation mail failed");
+		}
+	}
+
+	clear(): void {
+		this.verificationEmails = [];
+		this.groupInvitationEmails = [];
+		this.failVerification = false;
+		this.failInvitation = false;
+	}
+}
+
+function extractToken(url: string): string {
+	const parsed = new URL(url);
+	const token = parsed.searchParams.get("token");
+
+	if (!token) {
+		throw new Error("Expected token query parameter.");
+	}
+
+	return token;
+}

@@ -36,4 +36,23 @@ export const envValidationSchema = Joi.object({
 			.default("test-digest-secret-with-at-least-32-chars"),
 		otherwise: Joi.string().min(32).required(),
 	}),
+	MAIL_PROVIDER: Joi.string().valid("noop", "resend").default("noop"),
+	MAIL_FROM: Joi.string().default("Cuentas Claras <noreply@example.com>"),
+	APP_PUBLIC_URL: Joi.alternatives()
+		.try(
+			Joi.string().uri({ scheme: ["http", "https"] }),
+			Joi.string().pattern(/^cuentasclaras:\/\/(?:[A-Za-z0-9.-]+)?$/),
+		)
+		.default("http://localhost:3000"),
+	EMAIL_VERIFICATION_TOKEN_TTL: Joi.string()
+		.pattern(/^\d+[smhd]$/)
+		.default("24h"),
+	GROUP_INVITATION_TOKEN_TTL: Joi.string()
+		.pattern(/^\d+[smhd]$/)
+		.default("7d"),
+	RESEND_API_KEY: Joi.when("MAIL_PROVIDER", {
+		is: "resend",
+		then: Joi.string().required(),
+		otherwise: Joi.string().allow("").optional(),
+	}),
 });

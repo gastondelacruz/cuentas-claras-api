@@ -47,6 +47,7 @@ describe("PrismaAuthUserRepository", () => {
 				id: true,
 				name: true,
 				email: true,
+				emailVerifiedAt: true,
 			},
 		});
 		expect(transaction.account.create).toHaveBeenCalledWith({
