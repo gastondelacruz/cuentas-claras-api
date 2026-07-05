@@ -1,29 +1,40 @@
 import { Test, type TestingModule } from "@nestjs/testing";
 import { GroupRepository } from "../../domain/ports/group.repository";
+import { GroupMemberUserResolver } from "../../domain/ports/group-member-user-resolver";
 import { GroupEntity } from "../../domain/entities/group-entity";
 import { GroupMemberEntity } from "../../domain/entities/group-member-entity";
 import { CreateGroupUseCase } from "./create-group.use-case";
 
 describe("CreateGroupUseCase", () => {
   let useCase: CreateGroupUseCase;
-  let repository: {
-    createForUser: ReturnType<typeof vi.fn>;
-  };
+	let repository: {
+		createForUser: ReturnType<typeof vi.fn>;
+	};
+	let memberUserResolver: {
+		resolveByEmails: ReturnType<typeof vi.fn>;
+	};
 
   beforeEach(async () => {
-    repository = {
-      createForUser: vi.fn(),
-    };
+		repository = {
+			createForUser: vi.fn(),
+		};
+		memberUserResolver = {
+			resolveByEmails: vi.fn().mockResolvedValue(new Map()),
+		};
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CreateGroupUseCase,
-        {
-          provide: GroupRepository,
-          useValue: repository,
-        },
-      ],
-    }).compile();
+				{
+					provide: GroupRepository,
+					useValue: repository,
+				},
+				{
+					provide: GroupMemberUserResolver,
+					useValue: memberUserResolver,
+				},
+			],
+		}).compile();
 
     useCase = module.get(CreateGroupUseCase);
   });
@@ -59,7 +70,65 @@ describe("CreateGroupUseCase", () => {
 		await expect(useCase.execute("user-1", payload)).resolves.toEqual(createdGroup);
 		expect(repository.createForUser).toHaveBeenCalledWith(
 			"user-1",
-			payload,
+			expect.objectContaining({
+				id: payload.id,
+				members: [
+					expect.objectContaining({
+						displayName: "Ana",
+						userId: null,
+					}),
+				],
+			}),
 		);
+	});
+
+	it("links invited members to existing users resolved by normalized email", async () => {
+		const payload = new GroupEntity({
+			id: "group-1",
+			name: "Trip to Mendoza",
+			type: "trip",
+			currency: "ARS",
+			members: [
+				new GroupMemberEntity({
+					id: "member-1",
+					displayName: "Ana",
+					email: " Ana@Example.COM ",
+				}),
+				new GroupMemberEntity({
+					id: "member-2",
+					displayName: "Pending",
+					email: "pending@example.com",
+				}),
+			],
+		});
+		const createdGroup = new GroupEntity({
+			id: "group-1",
+			name: "Trip to Mendoza",
+			type: "trip",
+			currency: "ARS",
+		});
+
+		memberUserResolver.resolveByEmails.mockResolvedValue(
+			new Map([["ana@example.com", "user-ana"]]),
+		);
+		repository.createForUser.mockResolvedValue(createdGroup);
+
+		await expect(useCase.execute("owner-1", payload)).resolves.toEqual(createdGroup);
+
+		expect(memberUserResolver.resolveByEmails).toHaveBeenCalledWith([
+			"ana@example.com",
+			"pending@example.com",
+		]);
+		const persistedPayload = repository.createForUser.mock.calls[0][1] as GroupEntity;
+		expect(persistedPayload.members).toEqual([
+			expect.objectContaining({
+				displayName: "Ana",
+				userId: "user-ana",
+			}),
+			expect.objectContaining({
+				displayName: "Pending",
+				userId: null,
+			}),
+		]);
 	});
 });

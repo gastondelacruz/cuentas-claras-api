@@ -5,6 +5,7 @@ import {
 	type ExceptionFilter,
 	HttpException,
 	HttpStatus,
+	Logger,
 } from "@nestjs/common";
 import type { Request, Response } from "express";
 import {
@@ -23,16 +24,91 @@ type ErrorResponse = {
 	};
 };
 
+const SENSITIVE_BODY_KEYS = new Set([
+	"accesstoken",
+	"authorization",
+	"password",
+	"refreshtoken",
+	"token",
+]);
+
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
+	private readonly logger = new Logger(HttpExceptionFilter.name);
+	private readonly nodeEnv: string;
+
+	constructor(nodeEnv = process.env.NODE_ENV ?? "development") {
+		this.nodeEnv = nodeEnv;
+	}
+
 	catch(exception: unknown, host: ArgumentsHost) {
 		const ctx = host.switchToHttp();
 		const response = ctx.getResponse<Response>();
 		const request = ctx.getRequest<Request>();
 
 		const payload = this.normalizeResponse(exception, request.url);
+		this.logException(exception, request, payload);
 
 		response.status(payload.error.statusCode).json(payload);
+	}
+
+	private logException(
+		exception: unknown,
+		request: Request,
+		payload: ErrorResponse,
+	): void {
+		const { error } = payload;
+		const message = this.createLogMessage(request, payload);
+		const stack = exception instanceof Error ? exception.stack : undefined;
+
+		if (error.statusCode >= 500) {
+			this.logger.error(message, stack);
+			return;
+		}
+
+		this.logger.warn(message, stack);
+	}
+
+	private createLogMessage(request: Request, payload: ErrorResponse): string {
+		const { error } = payload;
+		const baseMessage = `${request.method} ${request.url} -> ${error.statusCode} ${error.code}: ${error.message}`;
+
+		if (this.nodeEnv !== "development") {
+			return baseMessage;
+		}
+
+		return `${baseMessage} body=${this.stringifyBody(request.body)}`;
+	}
+
+	private stringifyBody(body: unknown): string {
+		if (body === undefined) {
+			return "undefined";
+		}
+
+		try {
+			return JSON.stringify(this.sanitizeBody(body));
+		} catch {
+			return "[unserializable]";
+		}
+	}
+
+	private sanitizeBody(value: unknown): unknown {
+		if (Array.isArray(value)) {
+			return value.map((item) => this.sanitizeBody(item));
+		}
+
+		if (typeof value !== "object" || value === null) {
+			return value;
+		}
+
+		return Object.fromEntries(
+			Object.entries(value).map(([key, item]) => [
+				key,
+				SENSITIVE_BODY_KEYS.has(key.toLowerCase())
+					? "[redacted]"
+					: this.sanitizeBody(item),
+			]),
+		);
 	}
 
 	private normalizeResponse(exception: unknown, path: string): ErrorResponse {

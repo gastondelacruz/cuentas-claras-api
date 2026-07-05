@@ -156,12 +156,31 @@ describe("Groups endpoints (e2e)", () => {
 				description: "Shared expenses for the trip",
 				type: "trip",
 				currency: "ARS",
+				members: [
+					{
+						id: expect.any(String),
+						displayName: "Development User",
+						email: "dev@cuentasclaras.local",
+						isCurrentUser: true,
+						removedAt: null,
+					},
+					{
+						id: expect.any(String),
+						displayName: "Ana",
+						email: "ana@example.com",
+						isCurrentUser: false,
+						removedAt: null,
+					},
+				],
 				membersCount: 2,
 				expensesCount: 0,
 				totalAmount: 0,
 				currentUserBalance: 0,
+				expenses: [],
+				balances: [],
 				createdAt: expect.any(String),
 				updatedAt: expect.any(String),
+				archivedAt: null,
 			},
 		});
 
@@ -191,6 +210,98 @@ describe("Groups endpoints (e2e)", () => {
 			displayName: "Ana",
 			email: "ana@example.com",
 		});
+	});
+
+	it("POST /api/v1/groups links invited members when their email belongs to an existing user", async () => {
+		const invitedUser = await prisma.user.create({
+			data: {
+				name: "Ana Existing",
+				email: "ana.existing@example.com",
+			},
+		});
+
+		const response = await request(app.getHttpServer())
+			.post("/api/v1/groups")
+			.send({
+				name: "Linked Group",
+				type: "friends",
+				currency: "ARS",
+				members: [
+					{
+						displayName: "Ana",
+						email: " Ana.Existing@Example.COM ",
+					},
+				],
+			})
+			.expect(201);
+
+		const invitedMember = await prisma.groupMember.findFirstOrThrow({
+			where: {
+				groupId: response.body.data.id,
+				email: "ana.existing@example.com",
+			},
+		});
+
+		expect(invitedMember).toMatchObject({
+			userId: invitedUser.id,
+			displayName: "Ana",
+			email: "ana.existing@example.com",
+		});
+	});
+
+	it("POST /api/v1/auth/register keeps pending group members unlinked and hidden from the new user", async () => {
+		const createResponse = await request(app.getHttpServer())
+			.post("/api/v1/groups")
+			.send({
+				name: "Pending Invitation Group",
+				type: "friends",
+				currency: "ARS",
+				members: [
+					{
+						displayName: "New Member",
+						email: "new.member@example.com",
+					},
+				],
+			})
+			.expect(201);
+
+		const pendingMemberBeforeRegistration = await prisma.groupMember.findFirstOrThrow({
+			where: {
+				groupId: createResponse.body.data.id,
+				email: "new.member@example.com",
+			},
+		});
+		expect(pendingMemberBeforeRegistration.userId).toBeNull();
+
+		const registerResponse = await request(app.getHttpServer())
+			.post("/api/v1/auth/register")
+			.send({
+				name: "New Member",
+				email: "new.member@example.com",
+				password: "SecureP4ss!",
+			})
+			.expect(201);
+
+		const pendingMemberAfterRegistration = await prisma.groupMember.findFirstOrThrow({
+			where: {
+				groupId: createResponse.body.data.id,
+				email: "new.member@example.com",
+			},
+		});
+		expect(pendingMemberAfterRegistration.userId).toBeNull();
+
+		const listResponse = await request(app.getHttpServer())
+			.get("/api/v1/groups")
+			.set("Authorization", `Bearer ${registerResponse.body.data.accessToken}`)
+			.expect(200);
+
+		expect(listResponse.body.data).not.toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					id: createResponse.body.data.id,
+				}),
+			]),
+		);
 	});
 
 	it("POST /api/v1/groups creates a group without invited members and keeps the creator membership", async () => {
@@ -1078,6 +1189,78 @@ describe("Groups endpoints (e2e)", () => {
 			email: "diego@example.com",
 			removedAt: null,
 		});
+	});
+
+	it("PATCH /api/v1/groups/:groupId links an existing user by email and makes the group visible to them", async () => {
+		const invitedUser = await prisma.user.create({
+			data: {
+				name: "Invited Update User",
+				email: "invited.update@example.com",
+			},
+		});
+		const group = await prisma.group.create({
+			data: {
+				ownerUserId: DEV_USER_ID,
+				name: "Patch Linked Group",
+				type: "FRIENDS",
+				currency: "ARS",
+			},
+		});
+
+		await prisma.groupMember.create({
+			data: {
+				groupId: group.id,
+				userId: DEV_USER_ID,
+				displayName: "Development User",
+				email: DEV_USER_EMAIL,
+			},
+		});
+
+		await request(app.getHttpServer())
+			.patch(`/api/v1/groups/${group.id}`)
+			.send({
+				members: [
+					{
+						displayName: "Invited Update User",
+						email: " Invited.Update@Example.COM ",
+					},
+				],
+			})
+			.expect(200);
+
+		const linkedMember = await prisma.groupMember.findFirstOrThrow({
+			where: {
+				groupId: group.id,
+				email: "invited.update@example.com",
+			},
+		});
+
+		expect(linkedMember).toMatchObject({
+			userId: invitedUser.id,
+			displayName: "Invited Update User",
+			email: "invited.update@example.com",
+			removedAt: null,
+		});
+
+		const listResponse = await request(app.getHttpServer())
+			.get("/api/v1/groups")
+			.set(
+				"Authorization",
+				createBearerToken({
+					userId: invitedUser.id,
+					email: invitedUser.email,
+				}),
+			)
+			.expect(200);
+
+		expect(listResponse.body.data).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					id: group.id,
+					name: "Patch Linked Group",
+				}),
+			]),
+		);
 	});
 
 	it("PATCH /api/v1/groups/:groupId with members: [] removes all invited members but keeps the dev user", async () => {

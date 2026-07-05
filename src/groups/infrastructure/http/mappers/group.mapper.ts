@@ -57,16 +57,25 @@ export class GroupMapper {
 		};
 	}
 
-	static toCreateResponseDto(group: GroupEntity): CreateGroupResponseDto {
+	static toCreateResponseDto(
+		group: GroupEntity,
+		userId: string,
+	): CreateGroupResponseDto {
 		return {
 			...GroupMapper.toBaseResponseDto(group),
 			type: group.type,
+			members: group.members.map((member) =>
+				GroupMapper.toMemberResponseDto(member, userId),
+			),
 			membersCount: group.members.length,
 			expensesCount: 0,
 			totalAmount: 0,
 			currentUserBalance: 0,
+			expenses: [],
+			balances: [],
 			createdAt: group.createdAt?.toISOString(),
 			updatedAt: group.updatedAt?.toISOString(),
+			archivedAt: group.archivedAt?.toISOString() ?? null,
 		};
 	}
 
@@ -93,13 +102,9 @@ export class GroupMapper {
 			name: group.name.getValue(),
 			description: group.description,
 			currency: group.currency.getValue(),
-			members: group.members.map((member) => ({
-				id: member.id,
-				displayName: member.displayName,
-				email: member.getEmailValue() ?? undefined,
-				isCurrentUser: member.isCurrentUser(userId),
-				removedAt: member.removedAt?.toISOString() ?? null,
-			})),
+			members: group.members.map((member) =>
+				GroupMapper.toMemberResponseDto(member, userId),
+			),
 			expenses: [],
 			balances: [],
 			createdAt: group.createdAt?.toISOString(),
@@ -181,6 +186,19 @@ export class GroupMapper {
 			description: group.description,
 			type: group.type,
 			currency: group.currency.getValue(),
+		};
+	}
+
+	private static toMemberResponseDto(
+		member: GroupMemberEntity,
+		userId: string,
+	): NonNullable<CreateGroupResponseDto["members"]>[number] {
+		return {
+			id: member.id,
+			displayName: member.displayName,
+			email: member.getEmailValue() ?? undefined,
+			isCurrentUser: member.isCurrentUser(userId),
+			removedAt: member.removedAt?.toISOString() ?? null,
 		};
 	}
 
