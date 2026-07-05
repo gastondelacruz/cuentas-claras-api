@@ -59,7 +59,7 @@ export class GroupsController {
 	): Promise<CreateGroupResponseDto> {
 		const groupDomain = GroupMapper.toDomain(body);
 		const group = await this.createGroupUseCase.execute(userId, groupDomain);
-		return GroupMapper.toCreateResponseDto(group);
+		return GroupMapper.toCreateResponseDto(group, userId);
 	}
 
 	@Get()

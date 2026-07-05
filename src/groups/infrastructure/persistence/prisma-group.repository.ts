@@ -57,14 +57,14 @@ export class PrismaGroupRepository extends GroupRepository {
           }),
           ...(payload.members ?? []).map(
             (member, index) =>
-              new GroupMemberEntity({
-                id: `invited-${index}`,
-                displayName: member.displayName,
-                email: member.email ?? null,
-                userId: null,
-              }),
-          ),
-        ],
+				new GroupMemberEntity({
+					id: `invited-${index}`,
+					displayName: member.displayName,
+					email: member.email ?? null,
+					userId: member.userId,
+				}),
+			),
+		],
       });
 
 		const group = await tx.group.create({
@@ -101,12 +101,12 @@ export class PrismaGroupRepository extends GroupRepository {
 
       if (invitedMembers.length > 0) {
         await tx.groupMember.createMany({
-          data: invitedMembers.map((member) => ({
-            groupId: group.id,
-            userId: null,
-            displayName: member.displayName,
-            email: member.getEmailValue(),
-          })),
+			data: invitedMembers.map((member) => ({
+				groupId: group.id,
+				userId: member.userId,
+				displayName: member.displayName,
+				email: member.getEmailValue(),
+			})),
         });
       }
 
@@ -728,10 +728,11 @@ export class PrismaGroupRepository extends GroupRepository {
           where: {
             id: matchedMember.id,
           },
-          data: {
-            displayName: member.displayName,
-            email: normalizedEmail,
-            removedAt: null,
+			data: {
+				userId: member.userId,
+				displayName: member.displayName,
+				email: normalizedEmail,
+				removedAt: null,
           },
         });
         matchedMemberIds.add(matchedMember.id);
@@ -739,12 +740,12 @@ export class PrismaGroupRepository extends GroupRepository {
       }
 
       const createdMember = await client.groupMember.create({
-        data: {
-          groupId,
-          userId: null,
-          displayName: member.displayName,
-          email: normalizedEmail,
-          removedAt: null,
+			data: {
+				groupId,
+				userId: member.userId,
+				displayName: member.displayName,
+				email: normalizedEmail,
+				removedAt: null,
         },
         select: {
           id: true,
@@ -826,13 +827,13 @@ export class PrismaGroupRepository extends GroupRepository {
     domainGroup.replaceInvitedMembers(
       members.map(
         (member, index) =>
-          new GroupMemberEntity({
-            id: `replacement-${index}`,
-            displayName: member.displayName,
-            email: member.email ?? null,
-            userId: null,
-          }),
-      ),
+			new GroupMemberEntity({
+				id: `replacement-${index}`,
+				displayName: member.displayName,
+				email: member.email ?? null,
+				userId: member.userId,
+			}),
+		),
 		currentUserId,
 	);
 }

@@ -7,9 +7,11 @@ import { GetGroupDetailUseCase } from "./application/use-cases/get-group-detail.
 import { ListGroupsUseCase } from "./application/use-cases/list-groups.use-case";
 import { RecordSettlementPaymentUseCase } from "./application/use-cases/record-settlement-payment.use-case";
 import { UpdateGroupUseCase } from "./application/use-cases/update-group.use-case";
+import { GroupMemberUserResolver } from "./domain/ports/group-member-user-resolver";
 import { GroupRepository } from "./domain/ports/group.repository";
 import { GroupsController } from "./infrastructure/http/groups.controller";
 import { AtLeastOneFieldConstraint } from "./infrastructure/http/validators/at-least-one-field.validator";
+import { PrismaGroupMemberUserResolver } from "./infrastructure/persistence/prisma-group-member-user-resolver";
 import { PrismaGroupRepository } from "./infrastructure/persistence/prisma-group.repository";
 
 @Module({
@@ -23,12 +25,17 @@ import { PrismaGroupRepository } from "./infrastructure/persistence/prisma-group
     GetGroupBalancesUseCase,
     GetGroupSettlementsUseCase,
     RecordSettlementPaymentUseCase,
-    AtLeastOneFieldConstraint,
-    PrismaGroupRepository,
-    {
-      provide: GroupRepository,
-      useExisting: PrismaGroupRepository,
-    },
-  ],
+		AtLeastOneFieldConstraint,
+		PrismaGroupRepository,
+		PrismaGroupMemberUserResolver,
+		{
+			provide: GroupRepository,
+			useExisting: PrismaGroupRepository,
+		},
+		{
+			provide: GroupMemberUserResolver,
+			useExisting: PrismaGroupMemberUserResolver,
+		},
+	],
 })
 export class GroupsModule {}

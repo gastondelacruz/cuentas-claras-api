@@ -52,6 +52,10 @@ export class GroupEntity {
 			throw new Error("Group members cannot share the same email.");
 		}
 
+		if (member.userId && this.hasActiveMemberWithUserId(member.userId)) {
+			throw new Error("Group members cannot share the same user.");
+		}
+
 		this.groupMembers.push(member);
 	}
 
@@ -79,6 +83,12 @@ export class GroupEntity {
 	private hasActiveMemberWithEmail(email: string): boolean {
 		return this.groupMembers.some(
 			(member) => member.isActive && member.getEmailValue() === email,
+		);
+	}
+
+	private hasActiveMemberWithUserId(userId: string): boolean {
+		return this.groupMembers.some(
+			(member) => member.isActive && member.userId === userId,
 		);
 	}
 }
