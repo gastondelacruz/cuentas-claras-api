@@ -10,6 +10,11 @@ import * as argon2 from "argon2";
 import { execSync } from "node:child_process";
 import request from "supertest";
 import { AppModule } from "../src/app.module";
+import {
+	MailDeliveryPort,
+	type GroupInvitationEmailInput,
+	type VerificationEmailInput,
+} from "../src/shared/mail/domain/ports/mail-delivery.port";
 import { HttpExceptionFilter } from "../src/shared/filters/http-exception.filter";
 import { ResponseInterceptor } from "../src/shared/interceptors/response.interceptor";
 
@@ -251,6 +256,10 @@ describe("Auth refresh token endpoint (e2e)", () => {
 			.expect(200);
 
 		const originalRefreshToken: string = loginRes.body.data.refreshToken;
+		await prisma.user.update({
+			where: { email: "refresh@example.com" },
+			data: { emailVerifiedAt: new Date() },
+		});
 
 		// Refresh using the original token
 		const refreshRes = await request(app.getHttpServer())
@@ -631,3 +640,202 @@ describe("Auth registration endpoint (e2e)", () => {
 		}
 	});
 });
+
+describe("Email verification endpoints (e2e)", () => {
+	let app: INestApplication;
+	let postgresContainer: StartedPostgreSqlContainer;
+	let prisma: PrismaClient;
+	let mail: CapturingMailDelivery;
+
+	beforeAll(async () => {
+		postgresContainer = await new PostgreSqlContainer("postgres:17-alpine")
+			.withDatabase("cuentas_claras_test")
+			.withUsername("postgres")
+			.withPassword("postgres")
+			.start();
+
+		process.env.DATABASE_URL = postgresContainer.getConnectionUri();
+		process.env.NODE_ENV = "test";
+		process.env.JWT_ACCESS_SECRET = "test-access-secret-with-at-least-32-chars";
+		process.env.JWT_REFRESH_SECRET = "test-refresh-secret-with-at-least-32-chars";
+		process.env.JWT_ACCESS_TTL = "15m";
+		process.env.JWT_REFRESH_TTL = "30d";
+
+		execSync("npx prisma db push", {
+			cwd: process.cwd(),
+			env: process.env,
+			stdio: "inherit",
+		});
+
+		const adapter = new PrismaPg({
+			connectionString: process.env.DATABASE_URL,
+		});
+		prisma = new PrismaClient({ adapter });
+		await prisma.$connect();
+
+		mail = new CapturingMailDelivery();
+		const moduleFixture: TestingModule = await Test.createTestingModule({
+			imports: [AppModule],
+		})
+			.overrideProvider(MailDeliveryPort)
+			.useValue(mail)
+			.compile();
+
+		app = moduleFixture.createNestApplication();
+		app.useGlobalPipes(
+			new ValidationPipe({
+				whitelist: true,
+				transform: true,
+			}),
+		);
+		app.useGlobalFilters(new HttpExceptionFilter());
+		app.useGlobalInterceptors(new ResponseInterceptor());
+
+		await app.init();
+	});
+
+	afterAll(async () => {
+		if (app) {
+			await app.close();
+		}
+
+		if (prisma) {
+			await prisma.$disconnect();
+		}
+
+		if (postgresContainer) {
+			await postgresContainer.stop();
+		}
+	});
+
+	beforeEach(async () => {
+		mail.clear();
+		await prisma.emailVerificationToken.deleteMany();
+		await prisma.refreshToken.deleteMany();
+		await prisma.account.deleteMany();
+		await prisma.user.deleteMany();
+	});
+
+	it("POST /api/v1/auth/email-verification/verify consumes a registration token and marks the user verified", async () => {
+		const registerResponse = await request(app.getHttpServer())
+			.post("/api/v1/auth/register")
+			.send({ email: "verify@example.com", password: "SecureP4ss!", name: "Verify User" })
+			.expect(201);
+		const token = extractToken(mail.verificationEmails[0].verificationUrl);
+
+		await request(app.getHttpServer())
+			.post("/api/v1/auth/email-verification/verify")
+			.send({ token })
+			.expect(204);
+
+		const user = await prisma.user.findUniqueOrThrow({
+			where: { id: registerResponse.body.data.user.id },
+		});
+		const consumedTokens = await prisma.emailVerificationToken.findMany({
+			where: { userId: user.id, consumedAt: { not: null } },
+		});
+		expect(user.emailVerifiedAt).toEqual(expect.any(Date));
+		expect(consumedTokens).toHaveLength(1);
+	});
+
+	it("POST /api/v1/auth/email-verification/resend invalidates older active tokens and sends one replacement", async () => {
+		const registerResponse = await request(app.getHttpServer())
+			.post("/api/v1/auth/register")
+			.send({ email: "resend@example.com", password: "SecureP4ss!", name: "Resend User" })
+			.expect(201);
+
+		await request(app.getHttpServer())
+			.post("/api/v1/auth/email-verification/resend")
+			.set("Authorization", `Bearer ${registerResponse.body.data.accessToken}`)
+			.expect(204);
+
+		const tokens = await prisma.emailVerificationToken.findMany({
+			where: { userId: registerResponse.body.data.user.id },
+		});
+		expect(tokens).toHaveLength(2);
+		expect(tokens.filter((token) => token.consumedAt === null)).toHaveLength(1);
+		expect(mail.verificationEmails).toHaveLength(2);
+	});
+
+	it("GET /api/v1/auth/email-verification/status returns the current verification state", async () => {
+		const registerResponse = await request(app.getHttpServer())
+			.post("/api/v1/auth/register")
+			.send({ email: "status@example.com", password: "SecureP4ss!", name: "Status User" })
+			.expect(201);
+
+		await request(app.getHttpServer())
+			.get("/api/v1/auth/email-verification/status")
+			.set("Authorization", `Bearer ${registerResponse.body.data.accessToken}`)
+			.expect(200)
+			.expect((response) => {
+				expect(response.body).toEqual({
+					data: {
+						verified: false,
+						verifiedAt: null,
+					},
+				});
+			});
+	});
+
+	it("POST /api/v1/auth/email-verification/resend keeps durable state when mail delivery fails", async () => {
+		const registerResponse = await request(app.getHttpServer())
+			.post("/api/v1/auth/register")
+			.send({ email: "mail-fail@example.com", password: "SecureP4ss!", name: "Mail Fail" })
+			.expect(201);
+		mail.failVerification = true;
+
+		await request(app.getHttpServer())
+			.post("/api/v1/auth/email-verification/resend")
+			.set("Authorization", `Bearer ${registerResponse.body.data.accessToken}`)
+			.expect(204);
+
+		const activeTokens = await prisma.emailVerificationToken.findMany({
+			where: {
+				userId: registerResponse.body.data.user.id,
+				consumedAt: null,
+			},
+		});
+		expect(activeTokens).toHaveLength(1);
+	});
+});
+
+class CapturingMailDelivery extends MailDeliveryPort {
+	verificationEmails: VerificationEmailInput[] = [];
+	groupInvitationEmails: GroupInvitationEmailInput[] = [];
+	failVerification = false;
+	failInvitation = false;
+
+	async sendVerificationEmail(input: VerificationEmailInput): Promise<void> {
+		this.verificationEmails.push(input);
+
+		if (this.failVerification) {
+			throw new Error("verification mail failed");
+		}
+	}
+
+	async sendGroupInvitationEmail(input: GroupInvitationEmailInput): Promise<void> {
+		this.groupInvitationEmails.push(input);
+
+		if (this.failInvitation) {
+			throw new Error("invitation mail failed");
+		}
+	}
+
+	clear(): void {
+		this.verificationEmails = [];
+		this.groupInvitationEmails = [];
+		this.failVerification = false;
+		this.failInvitation = false;
+	}
+}
+
+function extractToken(url: string): string {
+	const parsed = new URL(url);
+	const token = parsed.searchParams.get("token");
+
+	if (!token) {
+		throw new Error("Expected token query parameter.");
+	}
+
+	return token;
+}

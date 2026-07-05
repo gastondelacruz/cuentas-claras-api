@@ -8,7 +8,9 @@ import {
 	Patch,
 	Post,
 	Query,
+	UseGuards,
 } from "@nestjs/common";
+import { EmailVerifiedGuard } from "../../../auth/infrastructure/security/email-verified.guard";
 import {
 	ApiBadRequestResponse,
 	ApiBearerAuth,
@@ -50,6 +52,7 @@ import { PersonalTransactionsMapper } from "./mappers/personal-transactions.mapp
 
 @ApiTags("me")
 @ApiBearerAuth()
+@UseGuards(EmailVerifiedGuard)
 @Controller("api/v1/me")
 export class MeController {
 	constructor(

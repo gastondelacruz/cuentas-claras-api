@@ -106,6 +106,7 @@ describe("LoginUseCase", () => {
 		expect(tokens.signAccessToken).toHaveBeenCalledWith({
 			sub: loginUser.id,
 			email: loginUser.email,
+			emailVerified: false,
 		});
 		expect(tokens.signRefreshToken).toHaveBeenCalledWith({ sub: loginUser.id });
 		expect(passwordHasher.hash).toHaveBeenCalledWith("refresh-token");

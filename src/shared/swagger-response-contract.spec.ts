@@ -3,9 +3,13 @@ import { Test } from "@nestjs/testing";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { LogoutUseCase } from "../auth/application/use-cases/logout.use-case";
+import { GetEmailVerificationStatusUseCase } from "../auth/application/use-cases/get-email-verification-status.use-case";
 import { LoginUseCase } from "../auth/application/use-cases/login.use-case";
 import { RefreshTokenUseCase } from "../auth/application/use-cases/refresh.use-case";
 import { RegisterUseCase } from "../auth/application/use-cases/register.use-case";
+import { ResendEmailVerificationUseCase } from "../auth/application/use-cases/resend-email-verification.use-case";
+import { VerifyEmailUseCase } from "../auth/application/use-cases/verify-email.use-case";
+import { AuthUserRepository } from "../auth/domain/ports/auth-user.repository";
 import { AuthController } from "../auth/infrastructure/http/auth.controller";
 import { CreateExpenseUseCase } from "../expenses/application/use-cases/create-expense.use-case";
 import { DeleteExpenseUseCase } from "../expenses/application/use-cases/delete-expense.use-case";
@@ -17,6 +21,7 @@ import {
 	ExpensesController,
 } from "../expenses/infrastructure/http/expenses.controller";
 import { ArchiveGroupUseCase } from "../groups/application/use-cases/archive-group.use-case";
+import { AcceptGroupInvitationUseCase } from "../groups/application/use-cases/accept-group-invitation.use-case";
 import { CreateGroupUseCase } from "../groups/application/use-cases/create-group.use-case";
 import { GetGroupBalancesUseCase } from "../groups/application/use-cases/get-group-balances.use-case";
 import { GetGroupDetailUseCase } from "../groups/application/use-cases/get-group-detail.use-case";
@@ -71,11 +76,16 @@ describe("global Swagger response contract", () => {
 				{ provide: LoginUseCase, useValue: executeMock },
 				{ provide: RefreshTokenUseCase, useValue: executeMock },
 				{ provide: LogoutUseCase, useValue: executeMock },
+				{ provide: VerifyEmailUseCase, useValue: executeMock },
+				{ provide: ResendEmailVerificationUseCase, useValue: executeMock },
+				{ provide: GetEmailVerificationStatusUseCase, useValue: executeMock },
+				{ provide: AuthUserRepository, useValue: { findById: () => null } },
 				{ provide: CreateGroupUseCase, useValue: executeMock },
 				{ provide: ListGroupsUseCase, useValue: executeMock },
 				{ provide: GetGroupDetailUseCase, useValue: executeMock },
 				{ provide: UpdateGroupUseCase, useValue: executeMock },
 				{ provide: ArchiveGroupUseCase, useValue: executeMock },
+				{ provide: AcceptGroupInvitationUseCase, useValue: executeMock },
 				{ provide: GetGroupBalancesUseCase, useValue: executeMock },
 				{ provide: GetGroupSettlementsUseCase, useValue: executeMock },
 				{ provide: RecordSettlementPaymentUseCase, useValue: executeMock },

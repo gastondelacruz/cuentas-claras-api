@@ -147,6 +147,20 @@ describe("Personal transactions endpoint (e2e)", () => {
 		});
 	});
 
+	it("GET /api/v1/me/personal-transactions returns 403 when the user has not verified email", async () => {
+		const unverifiedUser = await registerAndLogin(app, { emailVerified: false });
+
+		const response = await request(app.getHttpServer())
+			.get("/api/v1/me/personal-transactions")
+			.set("Authorization", unverifiedUser.authorization)
+			.expect(403);
+
+		expect(response.body.error).toMatchObject({
+			code: "EMAIL_NOT_VERIFIED",
+			statusCode: 403,
+		});
+	});
+
 	it("GET /api/v1/me/personal-transactions filters by range", async () => {
 		const today = new Date();
 		const yesterday = new Date(today);

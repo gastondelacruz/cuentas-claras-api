@@ -3,8 +3,8 @@ import { BusinessException } from "../../../shared/exceptions/business.exception
 import { GroupRepository } from "../../domain/ports/group.repository";
 import { GroupEntity } from "../../domain/entities/group-entity";
 import { GroupMemberEntity } from "../../domain/entities/group-member-entity";
-import { GroupMemberUserResolver } from "../../domain/ports/group-member-user-resolver";
 import type { UpdateGroupPayload } from "../../domain/ports/group.repository";
+import { SendGroupInvitationsService } from "../services/send-group-invitations.service";
 import { UpdateGroupUseCase } from "./update-group.use-case";
 
 describe("UpdateGroupUseCase", () => {
@@ -12,16 +12,16 @@ describe("UpdateGroupUseCase", () => {
 	let repository: {
 		updateByIdAndOwner: ReturnType<typeof vi.fn>;
 	};
-	let memberUserResolver: {
-		resolveByEmails: ReturnType<typeof vi.fn>;
+	let groupInvitations: {
+		sendForPendingMembers: ReturnType<typeof vi.fn>;
 	};
 
   beforeEach(async () => {
 		repository = {
 			updateByIdAndOwner: vi.fn(),
 		};
-		memberUserResolver = {
-			resolveByEmails: vi.fn().mockResolvedValue(new Map()),
+		groupInvitations = {
+			sendForPendingMembers: vi.fn().mockResolvedValue(undefined),
 		};
 
     const module: TestingModule = await Test.createTestingModule({
@@ -32,8 +32,8 @@ describe("UpdateGroupUseCase", () => {
 					useValue: repository,
 				},
 				{
-					provide: GroupMemberUserResolver,
-					useValue: memberUserResolver,
+					provide: SendGroupInvitationsService,
+					useValue: groupInvitations,
 				},
 			],
 		}).compile();
@@ -86,9 +86,10 @@ describe("UpdateGroupUseCase", () => {
 				],
 			}),
 		);
+		expect(groupInvitations.sendForPendingMembers).toHaveBeenCalledWith(updatedGroup);
 	});
 
-	it("links members to existing users by normalized email before persistence", async () => {
+	it("keeps updated email members pending until invitation acceptance", async () => {
 		const payload: UpdateGroupPayload = {
 			members: [
 				new GroupMemberEntity({
@@ -106,29 +107,23 @@ describe("UpdateGroupUseCase", () => {
 			members: payload.members,
 		});
 
-		memberUserResolver.resolveByEmails.mockResolvedValue(
-			new Map([["ana.linked@example.com", "linked-user-1"]]),
-		);
 		repository.updateByIdAndOwner.mockResolvedValue(updatedGroup);
 
 		await expect(useCase.execute("user-1", "group-1", payload)).resolves.toEqual(
 			updatedGroup,
 		);
 
-		expect(memberUserResolver.resolveByEmails).toHaveBeenCalledWith([
-			"ana.linked@example.com",
-		]);
 		expect(repository.updateByIdAndOwner).toHaveBeenCalledWith(
 			"group-1",
 			"user-1",
 			expect.objectContaining({
 				members: [
-					expect.objectContaining({
-						displayName: "Ana",
-						email: expect.objectContaining({ value: "ana.linked@example.com" }),
-						userId: "linked-user-1",
-					}),
-				],
+						expect.objectContaining({
+							displayName: "Ana",
+							email: expect.objectContaining({ value: "ana.linked@example.com" }),
+							userId: null,
+						}),
+					],
 			}),
 		);
 	});

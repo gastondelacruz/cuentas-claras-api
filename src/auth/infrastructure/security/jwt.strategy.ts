@@ -7,11 +7,13 @@ import authConfig from "../../../config/auth.config";
 export type JwtPayload = {
 	sub: string;
 	email: string;
+	emailVerified?: boolean;
 };
 
 export type JwtRequestUser = {
 	userId: string;
 	email: string;
+	emailVerified?: boolean;
 };
 
 @Injectable()
@@ -31,6 +33,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, "jwt") {
 		return {
 			userId: payload.sub,
 			email: payload.email,
+			emailVerified: payload.emailVerified,
 		};
 	}
 }

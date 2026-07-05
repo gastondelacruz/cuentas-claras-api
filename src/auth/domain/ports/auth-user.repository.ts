@@ -2,6 +2,7 @@ export type AuthUser = {
 	id: string;
 	name: string;
 	email: string;
+	emailVerifiedAt?: Date | null;
 };
 
 export type AuthLoginUser = AuthUser & { passwordHash: string | null };
@@ -32,4 +33,5 @@ export abstract class AuthUserRepository {
 		input: CreateUserWithPasswordInput,
 		defaultAccount: DefaultAccountInput,
 	): Promise<AuthUser>;
+	abstract markEmailVerified(userId: string, verifiedAt: Date): Promise<AuthUser>;
 }

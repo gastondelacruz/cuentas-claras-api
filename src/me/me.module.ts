@@ -1,4 +1,6 @@
 import { Module } from "@nestjs/common";
+import { AuthModule } from "../auth/auth.module";
+import { EmailVerifiedGuard } from "../auth/infrastructure/security/email-verified.guard";
 import { CreatePersonalTransactionUseCase } from "./application/use-cases/create-personal-transaction.use-case";
 import { GetMeSummaryUseCase } from "./application/use-cases/get-me-summary.use-case";
 import { GetPersonalTransactionsSummaryUseCase } from "./application/use-cases/get-personal-transactions-summary.use-case";
@@ -14,8 +16,10 @@ import { PrismaMeSummaryRepository } from "./infrastructure/persistence/prisma-m
 import { PrismaPersonalTransactionsRepository } from "./infrastructure/persistence/prisma-personal-transactions.repository";
 
 @Module({
+	imports: [AuthModule],
 	controllers: [MeController],
 	providers: [
+		EmailVerifiedGuard,
 		GetMeSummaryUseCase,
 		ListMyAccountsUseCase,
 		ListPersonalTransactionsUseCase,

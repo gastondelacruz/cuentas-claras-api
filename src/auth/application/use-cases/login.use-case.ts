@@ -55,6 +55,7 @@ export class LoginUseCase {
 		const accessToken = await this.tokens.signAccessToken({
 			sub: user.id,
 			email: user.email,
+			emailVerified: loginUser!.emailVerifiedAt !== null && loginUser!.emailVerifiedAt !== undefined,
 		});
 		const refresh = await this.tokens.signRefreshToken({ sub: user.id });
 		const refreshTokenHash = await this.passwordHasher.hash(refresh.token);

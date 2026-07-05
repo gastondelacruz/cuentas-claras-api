@@ -1,6 +1,7 @@
 export type AccessTokenPayload = {
 	sub: string;
 	email: string;
+	emailVerified?: boolean;
 };
 
 export type RefreshTokenPayload = {

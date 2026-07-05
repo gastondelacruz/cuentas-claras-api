@@ -8,7 +8,9 @@ import {
 	Patch,
 	Post,
 	Query,
+	UseGuards,
 } from "@nestjs/common";
+import { EmailVerifiedGuard } from "../../../auth/infrastructure/security/email-verified.guard";
 import {
 	ApiBearerAuth,
 	ApiTags,
@@ -35,6 +37,7 @@ import { ExpenseMapper } from "./mappers/expense.mapper";
 
 @ApiTags("expenses")
 @ApiBearerAuth()
+@UseGuards(EmailVerifiedGuard)
 @Controller("api/v1/groups/:groupId/expenses")
 export class ExpensesController {
 	constructor(
@@ -72,6 +75,7 @@ export class ExpensesController {
 
 @ApiTags("expenses")
 @ApiBearerAuth()
+@UseGuards(EmailVerifiedGuard)
 @Controller("api/v1/expenses")
 export class ExpenseDetailController {
 	constructor(
