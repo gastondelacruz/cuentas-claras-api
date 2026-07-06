@@ -21,6 +21,18 @@ const DEV_USER_ID = "00000000-0000-0000-0000-000000000001";
 const DEV_USER_EMAIL = "dev@cuentasclaras.local";
 const DEV_DEFAULT_ACCOUNT_ID = "00000000-0000-0000-0000-000000000002";
 
+function runPrismaCommand(command: string): void {
+	try {
+		execSync(command, {
+			cwd: process.cwd(),
+			env: process.env,
+			stdio: "inherit",
+		});
+	} catch (error) {
+		throw new Error(`Failed to run ${command}`, { cause: error });
+	}
+}
+
 describe("Personal transactions endpoint (e2e)", () => {
 	let app: INestApplication;
 	let postgresContainer: StartedPostgreSqlContainer;
@@ -41,17 +53,8 @@ describe("Personal transactions endpoint (e2e)", () => {
 		process.env.JWT_ACCESS_TTL = "15m";
 		process.env.JWT_REFRESH_TTL = "30d";
 
-		execSync("npx prisma migrate deploy", {
-			cwd: process.cwd(),
-			env: process.env,
-			stdio: "inherit",
-		});
-
-		execSync("npx prisma db seed", {
-			cwd: process.cwd(),
-			env: process.env,
-			stdio: "inherit",
-		});
+		runPrismaCommand("npx prisma migrate deploy");
+		runPrismaCommand("npx prisma db seed");
 
 		const adapter = new PrismaPg({
 			connectionString: process.env.DATABASE_URL,
@@ -118,7 +121,7 @@ describe("Personal transactions endpoint (e2e)", () => {
 
 		const response = await request(app.getHttpServer())
 			.get("/api/v1/me/personal-transactions")
-			.query({ type: "expense" })
+			.query({ type: "expense", range: "year" })
 			.expect(200);
 
 		expect(response.body).toEqual({
@@ -148,7 +151,9 @@ describe("Personal transactions endpoint (e2e)", () => {
 	});
 
 	it("GET /api/v1/me/personal-transactions returns 403 when the user has not verified email", async () => {
-		const unverifiedUser = await registerAndLogin(app, { emailVerified: false });
+		const unverifiedUser = await registerAndLogin(app, {
+			emailVerified: false,
+		});
 
 		const response = await request(app.getHttpServer())
 			.get("/api/v1/me/personal-transactions")
@@ -326,14 +331,18 @@ describe("Personal transactions endpoint (e2e)", () => {
 
 		const firstPage = await request(app.getHttpServer())
 			.get("/api/v1/me/personal-transactions")
-			.query({ limit: 1 })
+			.query({ limit: 1, range: "year" })
 			.expect(200);
 
 		expect(firstPage.body.data.transactions).toHaveLength(1);
 
 		const secondPage = await request(app.getHttpServer())
 			.get("/api/v1/me/personal-transactions")
-			.query({ limit: 1, cursor: firstPage.body.data.nextCursor })
+			.query({
+				limit: 1,
+				range: "year",
+				cursor: firstPage.body.data.nextCursor,
+			})
 			.expect(200);
 
 		const firstIds = [
@@ -497,16 +506,16 @@ describe("Personal transactions endpoint (e2e)", () => {
 		expect(response.body).toEqual({
 			data: {
 				id: expect.any(String),
-			accountId: DEV_DEFAULT_ACCOUNT_ID,
-			accountName: "Cuenta principal",
-			type: "expense",
-			amount: 1500,
-			currency: "ARS",
-			category: "Alimentación",
-			occurredAt: "2026-06-29T12:00:00.000Z",
-			note: null,
-			createdAt: expect.any(String),
-			updatedAt: expect.any(String),
+				accountId: DEV_DEFAULT_ACCOUNT_ID,
+				accountName: "Cuenta principal",
+				type: "expense",
+				amount: 1500,
+				currency: "ARS",
+				category: "Alimentación",
+				occurredAt: "2026-06-29T12:00:00.000Z",
+				note: null,
+				createdAt: expect.any(String),
+				updatedAt: expect.any(String),
 			},
 		});
 	});
@@ -658,7 +667,10 @@ describe("Personal transactions endpoint (e2e)", () => {
 	});
 
 	it("PATCH /api/v1/me/personal-transactions/:transactionId updates a transaction owned by the authenticated user", async () => {
-		const transaction = await createTransaction({ type: "expense", amount: 100 });
+		const transaction = await createTransaction({
+			type: "expense",
+			amount: 100,
+		});
 
 		await new Promise((resolve) => setTimeout(resolve, 10));
 
@@ -705,7 +717,10 @@ describe("Personal transactions endpoint (e2e)", () => {
 	});
 
 	it("PATCH /api/v1/me/personal-transactions/:transactionId returns 400 for invalid body", async () => {
-		const transaction = await createTransaction({ type: "expense", amount: 100 });
+		const transaction = await createTransaction({
+			type: "expense",
+			amount: 100,
+		});
 
 		const response = await request(app.getHttpServer())
 			.patch(`/api/v1/me/personal-transactions/${transaction.id}`)
@@ -719,7 +734,10 @@ describe("Personal transactions endpoint (e2e)", () => {
 	});
 
 	it("PATCH /api/v1/me/personal-transactions/:transactionId returns 400 when type is not a valid enum value", async () => {
-		const transaction = await createTransaction({ type: "expense", amount: 100 });
+		const transaction = await createTransaction({
+			type: "expense",
+			amount: 100,
+		});
 
 		const response = await request(app.getHttpServer())
 			.patch(`/api/v1/me/personal-transactions/${transaction.id}`)
@@ -733,7 +751,10 @@ describe("Personal transactions endpoint (e2e)", () => {
 	});
 
 	it("PATCH /api/v1/me/personal-transactions/:transactionId returns 400 when note exceeds 200 characters", async () => {
-		const transaction = await createTransaction({ type: "expense", amount: 100 });
+		const transaction = await createTransaction({
+			type: "expense",
+			amount: 100,
+		});
 
 		const response = await request(app.getHttpServer())
 			.patch(`/api/v1/me/personal-transactions/${transaction.id}`)
@@ -747,7 +768,10 @@ describe("Personal transactions endpoint (e2e)", () => {
 	});
 
 	it("PATCH /api/v1/me/personal-transactions/:transactionId returns 401 without a valid JWT", async () => {
-		const transaction = await createTransaction({ type: "expense", amount: 100 });
+		const transaction = await createTransaction({
+			type: "expense",
+			amount: 100,
+		});
 
 		await request(app.getHttpServer())
 			.patch(`/api/v1/me/personal-transactions/${transaction.id}`)
@@ -758,7 +782,9 @@ describe("Personal transactions endpoint (e2e)", () => {
 
 	it("PATCH /api/v1/me/personal-transactions/:transactionId returns 404 when the transaction does not exist", async () => {
 		const response = await request(app.getHttpServer())
-			.patch("/api/v1/me/personal-transactions/00000000-0000-0000-0000-000000000999")
+			.patch(
+				"/api/v1/me/personal-transactions/00000000-0000-0000-0000-000000000999",
+			)
 			.send({ amount: 250 })
 			.expect(404);
 
@@ -833,6 +859,7 @@ describe("Personal transactions endpoint (e2e)", () => {
 		const response = await request(app.getHttpServer())
 			.get("/api/v1/me/personal-transactions")
 			.set("Authorization", otherUser.authorization)
+			.query({ range: "year" })
 			.expect(200);
 
 		expect(response.body.data.transactions).toHaveLength(1);
