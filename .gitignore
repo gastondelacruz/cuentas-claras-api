@@ -11,3 +11,6 @@ coverage
 .atl/.skill-registry.cache.json
 .vscode/
 skills-lock.json
+# Local Pi runtime state
+.atl/
+.pi-subagents/
