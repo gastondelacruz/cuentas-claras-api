@@ -35,6 +35,16 @@ services:
         value: 30d
       - key: APP_PUBLIC_URL
         value: cuentasclaras://
+      - key: TRUST_PROXY_HOPS
+        value: 1
+      - key: THROTTLE_DEFAULT_LIMIT
+        value: 100
+      - key: THROTTLE_DEFAULT_TTL
+        value: 60000
+      - key: THROTTLE_AUTH_LIMIT
+        value: 5
+      - key: THROTTLE_AUTH_TTL
+        value: 60000
       - key: MAIL_PROVIDER
         value: noop
       - key: MAIL_FROM

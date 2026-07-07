@@ -1,0 +1,4 @@
+process.env.THROTTLE_DEFAULT_LIMIT = "1000";
+process.env.THROTTLE_DEFAULT_TTL = "60000";
+process.env.THROTTLE_AUTH_LIMIT = "1000";
+process.env.THROTTLE_AUTH_TTL = "60000";

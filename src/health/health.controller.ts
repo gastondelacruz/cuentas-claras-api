@@ -1,5 +1,6 @@
 import { Controller, Get } from "@nestjs/common";
 import { ApiProperty, ApiTags } from "@nestjs/swagger";
+import { SkipThrottle } from "@nestjs/throttler";
 import { Public } from "../shared/decorators/public.decorator";
 import { ApiOkDataResponse } from "../shared/swagger/api-envelope-response.decorator";
 
@@ -17,6 +18,7 @@ type HealthEnvelopeResponse = {
 
 @ApiTags("health")
 @Public()
+@SkipThrottle()
 @Controller("health")
 export class HealthController {
 	@Get()

@@ -5,6 +5,7 @@ export const envValidationSchema = Joi.object({
 		.valid("development", "test", "production")
 		.default("development"),
 	PORT: Joi.number().port().default(3000),
+	TRUST_PROXY_HOPS: Joi.number().integer().min(0).default(0),
 	DATABASE_URL: Joi.string()
 		.uri({ scheme: ["postgresql", "postgres"] })
 		.required(),
@@ -55,4 +56,8 @@ export const envValidationSchema = Joi.object({
 		then: Joi.string().required(),
 		otherwise: Joi.string().allow("").optional(),
 	}),
+	THROTTLE_DEFAULT_LIMIT: Joi.number().integer().positive().default(100),
+	THROTTLE_DEFAULT_TTL: Joi.number().integer().positive().default(60_000),
+	THROTTLE_AUTH_LIMIT: Joi.number().integer().positive().default(5),
+	THROTTLE_AUTH_TTL: Joi.number().integer().positive().default(60_000),
 });

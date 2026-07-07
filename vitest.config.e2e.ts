@@ -14,6 +14,7 @@ export default defineConfig({
 		environment: "node",
 		allowOnly: !process.env.CI,
 		root: "./",
+		setupFiles: ["test/setup-e2e.ts"],
 		include: ["test/**/*.e2e-spec.ts"],
 		hookTimeout: 60_000,
 		testTimeout: 60_000,

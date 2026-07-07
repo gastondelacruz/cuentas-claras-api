@@ -1,15 +1,20 @@
 import { ValidationPipe } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { NestFactory } from "@nestjs/core";
+import type { NestExpressApplication } from "@nestjs/platform-express";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { AppModule } from "./app.module";
+import { configureTrustProxy } from "./config/trust-proxy";
 import { PrismaService } from "./prisma/prisma.service";
 import { HttpExceptionFilter } from "./shared/filters/http-exception.filter";
 import { ResponseInterceptor } from "./shared/interceptors/response.interceptor";
 
 async function bootstrap() {
-	const app = await NestFactory.create(AppModule);
+	const app = await NestFactory.create<NestExpressApplication>(AppModule);
 	const configService = app.get(ConfigService);
+	const trustProxyHops = configService.get<number>("app.trustProxyHops", 0);
+
+	configureTrustProxy(app, trustProxyHops);
 
 	app.enableCors();
 	app.useGlobalPipes(
