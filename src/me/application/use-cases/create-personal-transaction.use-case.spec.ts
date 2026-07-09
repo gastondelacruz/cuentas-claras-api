@@ -67,6 +67,7 @@ describe("CreatePersonalTransactionUseCase", () => {
 			accountId: defaultAccount.id,
 			accountName: defaultAccount.name,
 			type: "expense",
+			expenseKind: "variable",
 			amount: 100,
 			currency: "ARS",
 			category: "Alimentación",
@@ -94,6 +95,45 @@ describe("CreatePersonalTransactionUseCase", () => {
 			expect.objectContaining({
 				userId: "user-1",
 				accountId: defaultAccount.id,
+				expenseKind: "variable",
+			}),
+		);
+	});
+
+	it("passes an explicit fixed expense kind for expense transactions", async () => {
+		accountsRepository.findDefaultByUserId.mockResolvedValue(defaultAccount);
+
+		const created: PersonalTransaction = {
+			id: "tx-1",
+			userId: "user-1",
+			accountId: defaultAccount.id,
+			accountName: defaultAccount.name,
+			type: "expense",
+			expenseKind: "fixed",
+			amount: 100,
+			currency: "ARS",
+			category: "Alimentación",
+			occurredAt: new Date("2026-06-29T10:00:00.000Z"),
+			note: null,
+			createdAt: new Date("2026-06-29T10:00:00.000Z"),
+			updatedAt: new Date("2026-06-29T10:00:00.000Z"),
+		};
+		transactionsRepository.create.mockResolvedValue(created);
+
+		const result = await useCase.execute({
+			userId: "user-1",
+			type: "expense",
+			expenseKind: "fixed",
+			amount: 100,
+			currency: "ARS",
+			category: "Alimentación",
+			occurredAt: new Date("2026-06-29T10:00:00.000Z"),
+		});
+
+		expect(result).toEqual(created);
+		expect(transactionsRepository.create).toHaveBeenCalledWith(
+			expect.objectContaining({
+				expenseKind: "fixed",
 			}),
 		);
 	});
@@ -107,6 +147,7 @@ describe("CreatePersonalTransactionUseCase", () => {
 			accountId: "account-1",
 			accountName: defaultAccount.name,
 			type: "income",
+			expenseKind: null,
 			amount: 500,
 			currency: "ARS",
 			category: "Salario",
@@ -133,6 +174,29 @@ describe("CreatePersonalTransactionUseCase", () => {
 			"account-1",
 			"user-1",
 		);
+		expect(transactionsRepository.create).toHaveBeenCalledWith(
+			expect.objectContaining({
+				expenseKind: null,
+			}),
+		);
+	});
+
+	it("throws PERSONAL_TX_EXPENSE_KIND_NOT_ALLOWED when expenseKind is sent for income", async () => {
+		await expect(
+			useCase.execute({
+				userId: "user-1",
+				accountId: "account-1",
+				type: "income",
+				expenseKind: "fixed",
+				amount: 100,
+				currency: "ARS",
+				category: "Salario",
+				occurredAt: new Date("2026-06-29T10:00:00.000Z"),
+			}),
+		).rejects.toMatchObject({
+			code: "PERSONAL_TX_EXPENSE_KIND_NOT_ALLOWED",
+			statusCode: 400,
+		});
 	});
 
 	it("throws PERSONAL_TX_CATEGORY_NOT_ALLOWED when category does not match type", async () => {

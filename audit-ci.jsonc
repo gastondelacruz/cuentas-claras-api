@@ -11,62 +11,6 @@
 				"expiry": "2026-08-03",
 				"notes": "Prisma 7 pulls @hono/node-server through @prisma/dev. npm suggests downgrading Prisma as the only current fix, so keep this path-scoped exception until a compatible Prisma 7 fix is available."
 			}
-		},
-		{
-			"GHSA-72gw-mp4g-v24j|@nestjs/core>@nestjs/platform-express>multer>": {
-				"active": true,
-				"expiry": "2026-08-03",
-				"notes": "NestJS 11 pulls multer through @nestjs/platform-express. npm suggests downgrading NestJS as the only current fix; review when a compatible NestJS release upgrades multer."
-			}
-		},
-		{
-			"GHSA-72gw-mp4g-v24j|@nestjs/platform-express>multer>": {
-				"active": true,
-				"expiry": "2026-08-03",
-				"notes": "NestJS 11 pulls multer through @nestjs/platform-express. npm suggests downgrading NestJS as the only current fix; review when a compatible NestJS release upgrades multer."
-			}
-		},
-		{
-			"GHSA-72gw-mp4g-v24j|@nestjs/swagger>@nestjs/core>@nestjs/platform-express>multer": {
-				"active": true,
-				"expiry": "2026-08-03",
-				"notes": "NestJS 11 pulls multer through @nestjs/platform-express. npm suggests downgrading NestJS as the only current fix; review when a compatible NestJS release upgrades multer."
-			}
-		},
-		{
-			"GHSA-72gw-mp4g-v24j|@nestjs/testing>@nestjs/core>@nestjs/platform-express>multer": {
-				"active": true,
-				"expiry": "2026-08-03",
-				"notes": "NestJS 11 pulls multer through @nestjs/platform-express. npm suggests downgrading NestJS as the only current fix; review when a compatible NestJS release upgrades multer."
-			}
-		},
-		{
-			"GHSA-3p4h-7m6x-2hcm|@nestjs/core>@nestjs/platform-express>multer>": {
-				"active": true,
-				"expiry": "2026-08-03",
-				"notes": "NestJS 11 pulls multer through @nestjs/platform-express. npm suggests downgrading NestJS as the only current fix; review when a compatible NestJS release upgrades multer."
-			}
-		},
-		{
-			"GHSA-3p4h-7m6x-2hcm|@nestjs/platform-express>multer>": {
-				"active": true,
-				"expiry": "2026-08-03",
-				"notes": "NestJS 11 pulls multer through @nestjs/platform-express. npm suggests downgrading NestJS as the only current fix; review when a compatible NestJS release upgrades multer."
-			}
-		},
-		{
-			"GHSA-3p4h-7m6x-2hcm|@nestjs/swagger>@nestjs/core>@nestjs/platform-express>multer": {
-				"active": true,
-				"expiry": "2026-08-03",
-				"notes": "NestJS 11 pulls multer through @nestjs/platform-express. npm suggests downgrading NestJS as the only current fix; review when a compatible NestJS release upgrades multer."
-			}
-		},
-		{
-			"GHSA-3p4h-7m6x-2hcm|@nestjs/testing>@nestjs/core>@nestjs/platform-express>multer": {
-				"active": true,
-				"expiry": "2026-08-03",
-				"notes": "NestJS 11 pulls multer through @nestjs/platform-express. npm suggests downgrading NestJS as the only current fix; review when a compatible NestJS release upgrades multer."
-			}
 		}
 	]
 }

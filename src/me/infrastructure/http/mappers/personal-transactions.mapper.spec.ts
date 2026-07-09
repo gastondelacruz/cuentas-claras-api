@@ -1,4 +1,4 @@
-import { type PersonalTransaction } from "../../../domain/ports/personal-transactions.repository";
+import type { PersonalTransaction } from "../../../domain/ports/personal-transactions.repository";
 import { PersonalTransactionsMapper } from "./personal-transactions.mapper";
 
 describe("PersonalTransactionsMapper", () => {
@@ -8,6 +8,7 @@ describe("PersonalTransactionsMapper", () => {
 		accountId: "00000000-0000-0000-0000-000000000002",
 		accountName: "Pesos",
 		type: "expense",
+		expenseKind: "variable",
 		amount: 1500,
 		currency: "ARS",
 		category: "Alimentación",
@@ -26,11 +27,15 @@ describe("PersonalTransactionsMapper", () => {
 	it("decodes a valid cursor back to the original id", () => {
 		const encoded = PersonalTransactionsMapper.encodeCursor(transaction.id);
 
-		expect(PersonalTransactionsMapper.decodeCursor(encoded)).toBe(transaction.id);
+		expect(PersonalTransactionsMapper.decodeCursor(encoded)).toBe(
+			transaction.id,
+		);
 	});
 
 	it("returns undefined for a cursor that does not decode to a UUID", () => {
-		expect(PersonalTransactionsMapper.decodeCursor("not-a-cursor")).toBeUndefined();
+		expect(
+			PersonalTransactionsMapper.decodeCursor("not-a-cursor"),
+		).toBeUndefined();
 		expect(PersonalTransactionsMapper.decodeCursor("")).toBeUndefined();
 		expect(PersonalTransactionsMapper.decodeCursor("dGVzdA")).toBeUndefined();
 	});
@@ -41,6 +46,7 @@ describe("PersonalTransactionsMapper", () => {
 		expect(dto).toEqual({
 			id: transaction.id,
 			type: transaction.type,
+			expenseKind: transaction.expenseKind,
 			amount: transaction.amount,
 			currency: transaction.currency,
 			category: transaction.category,
@@ -122,6 +128,8 @@ describe("PersonalTransactionsMapper", () => {
 			],
 		};
 
-		expect(PersonalTransactionsMapper.toSummaryResponseDto(output)).toEqual(output);
+		expect(PersonalTransactionsMapper.toSummaryResponseDto(output)).toEqual(
+			output,
+		);
 	});
 });

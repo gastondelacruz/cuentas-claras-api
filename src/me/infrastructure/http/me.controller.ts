@@ -25,24 +25,32 @@ import {
 	ApiCreatedDataResponse,
 	ApiOkDataResponse,
 } from "../../../shared/swagger/api-envelope-response.decorator";
+// biome-ignore lint/style/useImportType: Nest uses this class as a runtime DI token.
 import { CreatePersonalTransactionUseCase } from "../../application/use-cases/create-personal-transaction.use-case";
+// biome-ignore lint/style/useImportType: Nest uses this class as a runtime DI token.
 import { GetMeSummaryUseCase } from "../../application/use-cases/get-me-summary.use-case";
+// biome-ignore lint/style/useImportType: Nest uses this class as a runtime DI token.
 import { GetPersonalTransactionsSummaryUseCase } from "../../application/use-cases/get-personal-transactions-summary.use-case";
+// biome-ignore lint/style/useImportType: Nest uses this class as a runtime DI token.
 import { ListMyAccountsUseCase } from "../../application/use-cases/list-my-accounts.use-case";
+// biome-ignore lint/style/useImportType: Nest uses this class as a runtime DI token.
 import { ListPersonalTransactionsUseCase } from "../../application/use-cases/list-personal-transactions.use-case";
+// biome-ignore lint/style/useImportType: Nest uses this class as a runtime DI token.
 import { UpdatePersonalTransactionUseCase } from "../../application/use-cases/update-personal-transaction.use-case";
-import { type TransactionPeriod } from "../../domain/value-objects/transaction-period.vo";
-import { type TransactionType } from "../../domain/value-objects/transaction-type.vo";
+import type { TransactionExpenseKind } from "../../domain/value-objects/transaction-expense-kind.vo";
+import type { TransactionPeriod } from "../../domain/value-objects/transaction-period.vo";
+import type { TransactionType } from "../../domain/value-objects/transaction-type.vo";
 import { ListAccountsResponseDto } from "./dto/list-accounts-response.dto";
+// biome-ignore lint/style/useImportType: Swagger/Nest reads this DTO at runtime for body metadata.
 import { CreatePersonalTransactionRequestDto } from "./dto/create-personal-transaction-request.dto";
-import {
-	CreatePersonalTransactionResponseDto,
-} from "./dto/create-personal-transaction-response.dto";
+import { CreatePersonalTransactionResponseDto } from "./dto/create-personal-transaction-response.dto";
+// biome-ignore lint/style/useImportType: Swagger/Nest reads this DTO at runtime for query metadata.
 import { ListPersonalTransactionsQueryDto } from "./dto/list-personal-transactions-query.dto";
 import {
 	ListPersonalTransactionsResponseDto,
 } from "./dto/list-personal-transactions-response.dto";
 import { MeSummaryResponseDto } from "./dto/me-summary-response.dto";
+// biome-ignore lint/style/useImportType: Swagger/Nest reads this DTO at runtime for query metadata.
 import { PersonalTransactionsSummaryQueryDto } from "./dto/personal-transactions-summary-query.dto";
 import { PersonalTransactionsSummaryResponseDto } from "./dto/personal-transactions-summary-response.dto";
 import { UpdatePersonalTransactionRequestDto } from "./dto/update-personal-transaction-request.dto";
@@ -153,6 +161,7 @@ export class MeController {
 			userId,
 			accountId: dto.accountId,
 			type: dto.type as TransactionType,
+			expenseKind: dto.expenseKind as TransactionExpenseKind | undefined,
 			amount: dto.amount,
 			currency: dto.currency,
 			category: dto.category,
@@ -187,6 +196,7 @@ export class MeController {
 			userId,
 			transactionId,
 			type: dto.type as TransactionType | undefined,
+			expenseKind: dto.expenseKind as TransactionExpenseKind | undefined,
 			amount: dto.amount,
 			currency: dto.currency,
 			category: dto.category,

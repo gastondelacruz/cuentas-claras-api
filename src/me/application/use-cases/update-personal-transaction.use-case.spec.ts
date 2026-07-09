@@ -26,6 +26,7 @@ describe("UpdatePersonalTransactionUseCase", () => {
 		accountId: "account-1",
 		accountName: "Cash",
 		type: "expense",
+		expenseKind: "variable",
 		amount: 100,
 		currency: "ARS",
 		category: "Alimentación",
@@ -74,7 +75,9 @@ describe("UpdatePersonalTransactionUseCase", () => {
 	});
 
 	it("updates a transaction owned by the user", async () => {
-		transactionsRepository.findByIdAndUserId.mockResolvedValue(existingTransaction);
+		transactionsRepository.findByIdAndUserId.mockResolvedValue(
+			existingTransaction,
+		);
 
 		const updated: PersonalTransaction = {
 			...existingTransaction,
@@ -124,7 +127,9 @@ describe("UpdatePersonalTransactionUseCase", () => {
 	});
 
 	it("throws PERSONAL_TX_NOT_FOUND when the persistence layer reports no owner-scoped row was updated", async () => {
-		transactionsRepository.findByIdAndUserId.mockResolvedValue(existingTransaction);
+		transactionsRepository.findByIdAndUserId.mockResolvedValue(
+			existingTransaction,
+		);
 		transactionsRepository.update.mockResolvedValue(null);
 
 		await expect(
@@ -140,7 +145,9 @@ describe("UpdatePersonalTransactionUseCase", () => {
 	});
 
 	it("verifies ownership of an updated accountId", async () => {
-		transactionsRepository.findByIdAndUserId.mockResolvedValue(existingTransaction);
+		transactionsRepository.findByIdAndUserId.mockResolvedValue(
+			existingTransaction,
+		);
 		accountsRepository.findByIdAndUserId.mockResolvedValue(account);
 		transactionsRepository.update.mockResolvedValue({
 			...existingTransaction,
@@ -168,7 +175,9 @@ describe("UpdatePersonalTransactionUseCase", () => {
 	});
 
 	it("throws PERSONAL_TX_ACCOUNT_NOT_FOUND when the updated account does not belong to the user", async () => {
-		transactionsRepository.findByIdAndUserId.mockResolvedValue(existingTransaction);
+		transactionsRepository.findByIdAndUserId.mockResolvedValue(
+			existingTransaction,
+		);
 		accountsRepository.findByIdAndUserId.mockResolvedValue(null);
 
 		await expect(
@@ -184,8 +193,114 @@ describe("UpdatePersonalTransactionUseCase", () => {
 		expect(transactionsRepository.update).not.toHaveBeenCalled();
 	});
 
+	it("updates expense kind for expense transactions", async () => {
+		transactionsRepository.findByIdAndUserId.mockResolvedValue(
+			existingTransaction,
+		);
+		transactionsRepository.update.mockResolvedValue({
+			...existingTransaction,
+			expenseKind: "fixed",
+		});
+
+		await useCase.execute({
+			userId: "user-1",
+			transactionId: "tx-1",
+			expenseKind: "fixed",
+		});
+
+		expect(transactionsRepository.update).toHaveBeenCalledWith(
+			"tx-1",
+			"user-1",
+			{
+				expenseKind: "fixed",
+			},
+		);
+	});
+
+	it("throws PERSONAL_TX_EXPENSE_KIND_NOT_ALLOWED when expense kind is sent for income", async () => {
+		transactionsRepository.findByIdAndUserId.mockResolvedValue({
+			...existingTransaction,
+			type: "income",
+			expenseKind: null,
+			category: "Salario",
+		});
+
+		await expect(
+			useCase.execute({
+				userId: "user-1",
+				transactionId: "tx-1",
+				expenseKind: "fixed",
+			}),
+		).rejects.toMatchObject({
+			code: "PERSONAL_TX_EXPENSE_KIND_NOT_ALLOWED",
+			statusCode: 400,
+		});
+		expect(transactionsRepository.update).not.toHaveBeenCalled();
+	});
+
+	it("clears expense kind when an expense is updated to income", async () => {
+		transactionsRepository.findByIdAndUserId.mockResolvedValue(
+			existingTransaction,
+		);
+		transactionsRepository.update.mockResolvedValue({
+			...existingTransaction,
+			type: "income",
+			expenseKind: null,
+			category: "Salario",
+		});
+
+		await useCase.execute({
+			userId: "user-1",
+			transactionId: "tx-1",
+			type: "income",
+			category: "Salario",
+		});
+
+		expect(transactionsRepository.update).toHaveBeenCalledWith(
+			"tx-1",
+			"user-1",
+			{
+				expenseKind: null,
+				type: "income",
+				category: "Salario",
+			},
+		);
+	});
+
+	it("defaults expense kind when an income is updated to expense", async () => {
+		transactionsRepository.findByIdAndUserId.mockResolvedValue({
+			...existingTransaction,
+			type: "income",
+			expenseKind: null,
+			category: "Salario",
+		});
+		transactionsRepository.update.mockResolvedValue({
+			...existingTransaction,
+			expenseKind: "variable",
+		});
+
+		await useCase.execute({
+			userId: "user-1",
+			transactionId: "tx-1",
+			type: "expense",
+			category: "Alimentación",
+		});
+
+		expect(transactionsRepository.update).toHaveBeenCalledWith(
+			"tx-1",
+			"user-1",
+			{
+				expenseKind: "variable",
+				type: "expense",
+				category: "Alimentación",
+			},
+		);
+	});
+
 	it("validates the final type and category combination", async () => {
-		transactionsRepository.findByIdAndUserId.mockResolvedValue(existingTransaction);
+		transactionsRepository.findByIdAndUserId.mockResolvedValue(
+			existingTransaction,
+		);
 
 		await expect(
 			useCase.execute({

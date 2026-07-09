@@ -44,4 +44,28 @@ describe("CreatePersonalTransactionRequestDto", () => {
 
 		expect(errors).toHaveLength(0);
 	});
+
+	it("passes validation with a valid expense kind", async () => {
+		const dto = plainToInstance(CreatePersonalTransactionRequestDto, {
+			...validPayload,
+			expenseKind: "fixed",
+		});
+
+		const errors = await validate(dto);
+
+		expect(errors).toHaveLength(0);
+	});
+
+	it("fails validation with an invalid expense kind", async () => {
+		const dto = plainToInstance(CreatePersonalTransactionRequestDto, {
+			...validPayload,
+			expenseKind: "recurring",
+		});
+
+		const errors = await validate(dto);
+
+		expect(errors).toHaveLength(1);
+		expect(errors[0].property).toBe("expenseKind");
+		expect(errors[0].constraints).toHaveProperty("isIn");
+	});
 });

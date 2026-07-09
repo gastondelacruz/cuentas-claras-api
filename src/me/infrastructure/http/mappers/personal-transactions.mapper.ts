@@ -1,12 +1,12 @@
-import { type PersonalTransaction } from "../../../domain/ports/personal-transactions.repository";
-import { type GetPersonalTransactionsSummaryOutput } from "../../../application/use-cases/get-personal-transactions-summary.use-case";
-import { type ListPersonalTransactionsOutput } from "../../../application/use-cases/list-personal-transactions.use-case";
-import { type CreatePersonalTransactionResponseDto } from "../dto/create-personal-transaction-response.dto";
-import {
-	type ListPersonalTransactionsResponseDto,
-	type PersonalTransactionResponseDto,
+import type { PersonalTransaction } from "../../../domain/ports/personal-transactions.repository";
+import type { GetPersonalTransactionsSummaryOutput } from "../../../application/use-cases/get-personal-transactions-summary.use-case";
+import type { ListPersonalTransactionsOutput } from "../../../application/use-cases/list-personal-transactions.use-case";
+import type { CreatePersonalTransactionResponseDto } from "../dto/create-personal-transaction-response.dto";
+import type {
+	ListPersonalTransactionsResponseDto,
+	PersonalTransactionResponseDto,
 } from "../dto/list-personal-transactions-response.dto";
-import { type PersonalTransactionsSummaryResponseDto } from "../dto/personal-transactions-summary-response.dto";
+import type { PersonalTransactionsSummaryResponseDto } from "../dto/personal-transactions-summary-response.dto";
 
 export class PersonalTransactionsMapper {
 	static toResponseDto(
@@ -15,6 +15,7 @@ export class PersonalTransactionsMapper {
 		return {
 			id: transaction.id,
 			type: transaction.type,
+			expenseKind: transaction.expenseKind,
 			amount: transaction.amount,
 			currency: transaction.currency,
 			category: transaction.category,
