@@ -100,6 +100,51 @@ describe("CreatePersonalTransactionUseCase", () => {
 		);
 	});
 
+	it.each([
+		"Transporte",
+		"Otros",
+		"Servicio",
+		"Tarjetas",
+		"Auto",
+		"Ropa",
+	])("creates an expense transaction with %s category", async (category) => {
+		accountsRepository.findDefaultByUserId.mockResolvedValue(defaultAccount);
+
+		const created: PersonalTransaction = {
+			id: "tx-1",
+			userId: "user-1",
+			accountId: defaultAccount.id,
+			accountName: defaultAccount.name,
+			type: "expense",
+			expenseKind: "variable",
+			amount: 100,
+			currency: "ARS",
+			category,
+			occurredAt: new Date("2026-06-29T10:00:00.000Z"),
+			note: null,
+			createdAt: new Date("2026-06-29T10:00:00.000Z"),
+			updatedAt: new Date("2026-06-29T10:00:00.000Z"),
+		};
+		transactionsRepository.create.mockResolvedValue(created);
+
+		await expect(
+			useCase.execute({
+				userId: "user-1",
+				type: "expense",
+				amount: 100,
+				currency: "ARS",
+				category,
+				occurredAt: new Date("2026-06-29T10:00:00.000Z"),
+			}),
+		).resolves.toEqual(created);
+
+		expect(transactionsRepository.create).toHaveBeenCalledWith(
+			expect.objectContaining({
+				category,
+			}),
+		);
+	});
+
 	it("passes an explicit fixed expense kind for expense transactions", async () => {
 		accountsRepository.findDefaultByUserId.mockResolvedValue(defaultAccount);
 

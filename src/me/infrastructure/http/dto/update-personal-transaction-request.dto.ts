@@ -9,6 +9,7 @@ import {
 	IsUUID,
 	MaxLength,
 } from "class-validator";
+import { TRANSACTION_CATEGORY_SWAGGER_VALUES } from "../../../domain/value-objects/transaction-category.vo";
 import { TRANSACTION_EXPENSE_KINDS } from "../../../domain/value-objects/transaction-expense-kind.vo";
 import { TRANSACTION_TYPES } from "../../../domain/value-objects/transaction-type.vo";
 
@@ -52,7 +53,8 @@ export class UpdatePersonalTransactionRequestDto {
 
 	@ApiPropertyOptional({
 		description:
-			"Updated category name. Allowed values depend on the transaction type.",
+			"Updated category name. Swagger lists every supported category; the selected transaction type determines which ones are allowed.",
+		enum: TRANSACTION_CATEGORY_SWAGGER_VALUES,
 		example: "Alimentación",
 	})
 	@IsOptional()
