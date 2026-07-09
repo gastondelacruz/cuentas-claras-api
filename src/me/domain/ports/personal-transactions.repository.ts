@@ -1,9 +1,12 @@
+import type { TransactionExpenseKind } from "../value-objects/transaction-expense-kind.vo";
+
 export type PersonalTransaction = {
 	id: string;
 	userId: string;
 	accountId: string;
 	accountName: string;
 	type: string;
+	expenseKind: TransactionExpenseKind | null;
 	amount: number;
 	currency: string;
 	category: string;
@@ -17,6 +20,7 @@ export type CreatePersonalTransactionInput = {
 	userId: string;
 	accountId: string;
 	type: string;
+	expenseKind?: TransactionExpenseKind | null;
 	amount: number;
 	currency: string;
 	category: string;
@@ -27,6 +31,7 @@ export type CreatePersonalTransactionInput = {
 export type UpdatePersonalTransactionData = {
 	accountId?: string;
 	type?: string;
+	expenseKind?: TransactionExpenseKind | null;
 	amount?: number;
 	currency?: string;
 	category?: string;

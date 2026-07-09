@@ -9,6 +9,7 @@ import {
 	IsUUID,
 	MaxLength,
 } from "class-validator";
+import { TRANSACTION_EXPENSE_KINDS } from "../../../domain/value-objects/transaction-expense-kind.vo";
 import { TRANSACTION_TYPES } from "../../../domain/value-objects/transaction-type.vo";
 
 export class CreatePersonalTransactionRequestDto {
@@ -29,6 +30,17 @@ export class CreatePersonalTransactionRequestDto {
 	@IsString()
 	@IsIn(TRANSACTION_TYPES)
 	type: string;
+
+	@ApiPropertyOptional({
+		description:
+			"Expense kind. Applies only to expense transactions and defaults to variable when omitted.",
+		enum: TRANSACTION_EXPENSE_KINDS,
+		example: "variable",
+	})
+	@IsOptional()
+	@IsString()
+	@IsIn(TRANSACTION_EXPENSE_KINDS)
+	expenseKind?: string;
 
 	@ApiProperty({
 		description: "Transaction amount. Must be a positive number.",

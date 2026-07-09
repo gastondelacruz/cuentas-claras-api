@@ -9,6 +9,7 @@ import {
 	IsUUID,
 	MaxLength,
 } from "class-validator";
+import { TRANSACTION_EXPENSE_KINDS } from "../../../domain/value-objects/transaction-expense-kind.vo";
 import { TRANSACTION_TYPES } from "../../../domain/value-objects/transaction-type.vo";
 
 export class UpdatePersonalTransactionRequestDto {
@@ -21,6 +22,16 @@ export class UpdatePersonalTransactionRequestDto {
 	@IsString()
 	@IsIn(TRANSACTION_TYPES)
 	type?: string;
+
+	@ApiPropertyOptional({
+		description: "Updated expense kind. Applies only to expense transactions.",
+		enum: TRANSACTION_EXPENSE_KINDS,
+		example: "fixed",
+	})
+	@IsOptional()
+	@IsString()
+	@IsIn(TRANSACTION_EXPENSE_KINDS)
+	expenseKind?: string;
 
 	@ApiPropertyOptional({
 		description: "Updated transaction amount. Must be a positive number.",
@@ -40,7 +51,8 @@ export class UpdatePersonalTransactionRequestDto {
 	currency?: string;
 
 	@ApiPropertyOptional({
-		description: "Updated category name. Allowed values depend on the transaction type.",
+		description:
+			"Updated category name. Allowed values depend on the transaction type.",
 		example: "Alimentación",
 	})
 	@IsOptional()
@@ -64,7 +76,8 @@ export class UpdatePersonalTransactionRequestDto {
 	occurredAt?: string;
 
 	@ApiPropertyOptional({
-		description: "Updated free-text note, up to 200 characters. Use null to clear it.",
+		description:
+			"Updated free-text note, up to 200 characters. Use null to clear it.",
 		example: "Farmacia",
 		maxLength: 200,
 		nullable: true,

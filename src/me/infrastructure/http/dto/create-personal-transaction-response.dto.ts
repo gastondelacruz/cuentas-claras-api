@@ -7,6 +7,9 @@ export class CreatePersonalTransactionResponseDto {
 	@ApiProperty({ example: "expense" })
 	type: string;
 
+	@ApiProperty({ example: "variable", nullable: true })
+	expenseKind: string | null;
+
 	@ApiProperty({ example: 15000 })
 	amount: number;
 

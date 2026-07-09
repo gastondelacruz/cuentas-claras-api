@@ -130,6 +130,7 @@ describe("Personal transactions endpoint (e2e)", () => {
 					{
 						id: expect.any(String),
 						type: "expense",
+						expenseKind: "variable",
 						amount: 100,
 						currency: "ARS",
 						category: "Alimentación",
@@ -509,6 +510,7 @@ describe("Personal transactions endpoint (e2e)", () => {
 				accountId: DEV_DEFAULT_ACCOUNT_ID,
 				accountName: "Cuenta principal",
 				type: "expense",
+				expenseKind: "variable",
 				amount: 1500,
 				currency: "ARS",
 				category: "Alimentación",
@@ -517,6 +519,44 @@ describe("Personal transactions endpoint (e2e)", () => {
 				createdAt: expect.any(String),
 				updatedAt: expect.any(String),
 			},
+		});
+	});
+
+	it("POST /api/v1/me/personal-transactions creates a fixed expense transaction", async () => {
+		const response = await request(app.getHttpServer())
+			.post("/api/v1/me/personal-transactions")
+			.send({
+				type: "expense",
+				expenseKind: "fixed",
+				amount: 1500,
+				currency: "ARS",
+				category: "Alimentación",
+				occurredAt: "2026-06-29T12:00:00.000Z",
+			})
+			.expect(201);
+
+		expect(response.body.data).toMatchObject({
+			type: "expense",
+			expenseKind: "fixed",
+		});
+	});
+
+	it("POST /api/v1/me/personal-transactions rejects expense kind for income", async () => {
+		const response = await request(app.getHttpServer())
+			.post("/api/v1/me/personal-transactions")
+			.send({
+				type: "income",
+				expenseKind: "fixed",
+				amount: 5000,
+				currency: "ARS",
+				category: "Salario",
+				occurredAt: "2026-06-29T12:00:00.000Z",
+			})
+			.expect(400);
+
+		expect(response.body.error).toMatchObject({
+			code: "PERSONAL_TX_EXPENSE_KIND_NOT_ALLOWED",
+			statusCode: 400,
 		});
 	});
 
@@ -701,6 +741,43 @@ describe("Personal transactions endpoint (e2e)", () => {
 		expect(updatedAt).toBeGreaterThan(createdAt);
 	});
 
+	it("PATCH /api/v1/me/personal-transactions/:transactionId updates expense kind", async () => {
+		const transaction = await createTransaction({
+			type: "expense",
+			expenseKind: "variable",
+			amount: 100,
+		});
+
+		const response = await request(app.getHttpServer())
+			.patch(`/api/v1/me/personal-transactions/${transaction.id}`)
+			.send({ expenseKind: "fixed" })
+			.expect(200);
+
+		expect(response.body.data).toMatchObject({
+			id: transaction.id,
+			type: "expense",
+			expenseKind: "fixed",
+		});
+	});
+
+	it("PATCH /api/v1/me/personal-transactions/:transactionId rejects expense kind for income", async () => {
+		const transaction = await createTransaction({
+			type: "income",
+			category: "Salario",
+			amount: 100,
+		});
+
+		const response = await request(app.getHttpServer())
+			.patch(`/api/v1/me/personal-transactions/${transaction.id}`)
+			.send({ expenseKind: "fixed" })
+			.expect(400);
+
+		expect(response.body.error).toMatchObject({
+			code: "PERSONAL_TX_EXPENSE_KIND_NOT_ALLOWED",
+			statusCode: 400,
+		});
+	});
+
 	it("PATCH /api/v1/me/personal-transactions/:transactionId allows setting note to null", async () => {
 		const transaction = await createTransaction({
 			type: "expense",
@@ -808,6 +885,7 @@ describe("Personal transactions endpoint (e2e)", () => {
 				userId: otherUser.userId,
 				accountId: otherAccount.id,
 				type: "expense",
+				expenseKind: "variable",
 				amount: "999",
 				currency: "ARS",
 				category: "Alimentación",
@@ -849,6 +927,7 @@ describe("Personal transactions endpoint (e2e)", () => {
 				userId: otherUser.userId,
 				accountId: otherAccount.id,
 				type: "expense",
+				expenseKind: "variable",
 				amount: "999",
 				currency: "ARS",
 				category: "Alimentación",
@@ -874,6 +953,7 @@ describe("Personal transactions endpoint (e2e)", () => {
 			type: string;
 			amount: number;
 			currency: string;
+			expenseKind: "fixed" | "variable";
 			category: string;
 			occurredAt: Date;
 			note: string;
@@ -884,6 +964,10 @@ describe("Personal transactions endpoint (e2e)", () => {
 				userId: DEV_USER_ID,
 				accountId: DEV_DEFAULT_ACCOUNT_ID,
 				type: overrides.type ?? "expense",
+				expenseKind:
+					(overrides.type ?? "expense") === "expense"
+						? (overrides.expenseKind ?? "variable")
+						: null,
 				amount: overrides.amount ?? 100,
 				currency: overrides.currency ?? "ARS",
 				category: overrides.category ?? "Alimentación",

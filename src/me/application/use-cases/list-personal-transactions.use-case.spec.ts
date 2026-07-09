@@ -133,6 +133,7 @@ describe("ListPersonalTransactionsUseCase", () => {
 			accountId: "account-1",
 			accountName: "Cash",
 			type: "expense",
+			expenseKind: "variable",
 			amount: 10,
 			currency: "ARS",
 			category: "Alimentación",

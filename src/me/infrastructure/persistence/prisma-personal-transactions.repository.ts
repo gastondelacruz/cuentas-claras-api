@@ -1,9 +1,11 @@
 import { Injectable } from "@nestjs/common";
+// biome-ignore lint/style/useImportType: Nest uses this service as a runtime DI token.
 import { PrismaService } from "../../../prisma/prisma.service";
 import { DatabaseException } from "../../../shared/exceptions/database.exception";
+import type { TransactionExpenseKind } from "../../domain/value-objects/transaction-expense-kind.vo";
 import {
-	CreatePersonalTransactionInput,
-	FindFilteredPersonalTransactionsResult,
+	type CreatePersonalTransactionInput,
+	type FindFilteredPersonalTransactionsResult,
 	PersonalTransactionsRepository,
 	type PersonalTransaction,
 	type PersonalTransactionFilters,
@@ -53,20 +55,13 @@ export class PrismaPersonalTransactionsRepository extends PersonalTransactionsRe
 						...(filters.dateFrom || filters.dateTo
 							? {
 									occurredAt: {
-										...(filters.dateFrom
-											? { gte: filters.dateFrom }
-											: {}),
-										...(filters.dateTo
-											? { lt: filters.dateTo }
-											: {}),
+										...(filters.dateFrom ? { gte: filters.dateFrom } : {}),
+										...(filters.dateTo ? { lt: filters.dateTo } : {}),
 									},
 								}
 							: {}),
 					},
-					orderBy: [
-						{ occurredAt: "desc" },
-						{ id: "desc" },
-					],
+					orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
 					...(filters.cursor
 						? {
 								skip: 1,
@@ -99,6 +94,7 @@ export class PrismaPersonalTransactionsRepository extends PersonalTransactionsRe
 						userId: data.userId,
 						accountId: data.accountId,
 						type: data.type,
+						expenseKind: data.expenseKind,
 						amount: data.amount,
 						currency: data.currency,
 						category: data.category,
@@ -214,9 +210,11 @@ function sumByType(
 	breakdown: PersonalTransactionsSummary["breakdown"],
 	type: string,
 ): number {
-	return breakdown
-		.filter((item) => item.type === type)
-		.reduce((total, item) => total + toCents(item.amount), 0) / 100;
+	return (
+		breakdown
+			.filter((item) => item.type === type)
+			.reduce((total, item) => total + toCents(item.amount), 0) / 100
+	);
 }
 
 function toCents(amount: number): number {
@@ -235,30 +233,30 @@ const transactionInclude = {
 	},
 };
 
-function mapTransaction(
-	transaction: {
-		id: string;
-		userId: string;
-		accountId: string;
-		type: string;
-		amount: { toNumber: () => number } | number;
-		currency: string;
-		category: string;
-		occurredAt: Date;
-		note: string | null;
-		createdAt: Date;
-		updatedAt: Date;
-		account: {
-			name: string;
-		};
-	},
-): PersonalTransaction {
+function mapTransaction(transaction: {
+	id: string;
+	userId: string;
+	accountId: string;
+	type: string;
+	expenseKind?: TransactionExpenseKind | null;
+	amount: { toNumber: () => number } | number;
+	currency: string;
+	category: string;
+	occurredAt: Date;
+	note: string | null;
+	createdAt: Date;
+	updatedAt: Date;
+	account: {
+		name: string;
+	};
+}): PersonalTransaction {
 	return {
 		id: transaction.id,
 		userId: transaction.userId,
 		accountId: transaction.accountId,
 		accountName: transaction.account.name,
 		type: transaction.type,
+		expenseKind: transaction.expenseKind ?? null,
 		amount:
 			typeof transaction.amount === "number"
 				? transaction.amount
