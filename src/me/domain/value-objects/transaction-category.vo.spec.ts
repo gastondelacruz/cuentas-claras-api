@@ -23,6 +23,12 @@ describe("transaction-category", () => {
 			"Café",
 			"Educación",
 			"Regalos",
+			"Transporte",
+			"Otros",
+			"Servicio",
+			"Tarjetas",
+			"Auto",
+			"Ropa",
 			"Alimentación",
 		]);
 		expect(INCOME_CATEGORIES).toEqual([
