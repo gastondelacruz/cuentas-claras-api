@@ -137,7 +137,11 @@ function resolveUpdatedExpenseKind(
 	inputExpenseKind?: TransactionExpenseKind,
 ): TransactionExpenseKind | null {
 	if (nextType === "expense") {
-		return inputExpenseKind ?? existingExpenseKind ?? DEFAULT_TRANSACTION_EXPENSE_KIND;
+		return (
+			inputExpenseKind ??
+			existingExpenseKind ??
+			DEFAULT_TRANSACTION_EXPENSE_KIND
+		);
 	}
 
 	return null;
