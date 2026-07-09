@@ -19,6 +19,7 @@ describe("RefreshTokenUseCase", () => {
 		findActiveByUserId: ReturnType<typeof vi.fn>;
 		revoke: ReturnType<typeof vi.fn>;
 		revokeAllByUserId: ReturnType<typeof vi.fn>;
+		rotateIfActive: ReturnType<typeof vi.fn>;
 	};
 	let users: {
 		findById: ReturnType<typeof vi.fn>;
@@ -45,6 +46,7 @@ describe("RefreshTokenUseCase", () => {
 			findActiveByUserId: vi.fn(),
 			revoke: vi.fn(),
 			revokeAllByUserId: vi.fn(),
+			rotateIfActive: vi.fn(),
 		};
 		users = {
 			findById: vi.fn(),
@@ -98,8 +100,7 @@ describe("RefreshTokenUseCase", () => {
 			expiresAt,
 		});
 		passwordHasher.hash.mockResolvedValue("hashed-new-token");
-		refreshTokens.revoke.mockResolvedValue(undefined);
-		refreshTokens.save.mockResolvedValue(undefined);
+		refreshTokens.rotateIfActive.mockResolvedValue(true);
 
 		const result = await useCase.execute({ refreshToken: rawToken });
 
@@ -111,7 +112,7 @@ describe("RefreshTokenUseCase", () => {
 		expect(users.findById).toHaveBeenCalledWith(userId);
 		expect(refreshTokens.findActiveByUserId).toHaveBeenCalledWith(userId);
 		expect(passwordHasher.verify).toHaveBeenCalledWith(rawToken, "hashed-old-token");
-		expect(refreshTokens.revoke).toHaveBeenCalledWith(existingToken.id);
+		expect(refreshTokens.revoke).not.toHaveBeenCalled();
 		expect(tokens.signAccessToken).toHaveBeenCalledWith({
 			sub: userId,
 			email,
@@ -120,13 +121,55 @@ describe("RefreshTokenUseCase", () => {
 		expect(tokens.signRefreshToken).toHaveBeenCalledWith({ sub: userId });
 		expect(passwordHasher.hash).toHaveBeenCalledWith("new-refresh-token");
 		expect(tokenDigestService.digest).toHaveBeenCalledWith("new-refresh-token");
-		expect(refreshTokens.save).toHaveBeenCalledWith({
-			userId,
-			tokenHash: "hashed-new-token",
-			tokenDigest: "new-token-digest",
-			expiresAt,
-		});
+		expect(refreshTokens.rotateIfActive).toHaveBeenCalledWith(
+			existingToken.id,
+			{
+				userId,
+				tokenHash: "hashed-new-token",
+				tokenDigest: "new-token-digest",
+				expiresAt,
+			},
+			null,
+		);
+		expect(refreshTokens.save).not.toHaveBeenCalled();
 		expect(refreshTokens.revokeAllByUserId).not.toHaveBeenCalled();
+	});
+
+	it("rejects stale refresh rotation when an account claim deletes the validated session first", async () => {
+		const userId = "55555555-5555-5555-5555-555555555555";
+		const existingToken = {
+			id: "cccccccc-0000-0000-0000-000000000003",
+			userId,
+			tokenHash: "validated-old-token",
+			tokenDigest: "old-token-digest",
+			expiresAt: new Date("2026-08-01T00:00:00.000Z"),
+			revokedAt: null,
+		};
+
+		tokens.verifyRefreshToken.mockResolvedValue({ sub: userId });
+		users.findById.mockResolvedValue({
+			id: userId,
+			name: "Claimed",
+			email: "claimed@example.com",
+			emailVerifiedAt: null,
+		});
+		refreshTokens.findActiveByUserId.mockResolvedValue([existingToken]);
+		passwordHasher.verify.mockResolvedValue(true);
+		tokens.signAccessToken.mockResolvedValue("stale-access-token");
+		tokens.signRefreshToken.mockResolvedValue({
+			token: "stale-refresh-token",
+			expiresAt: new Date("2026-09-01T00:00:00.000Z"),
+		});
+		passwordHasher.hash.mockResolvedValue("stale-refresh-hash");
+		refreshTokens.rotateIfActive.mockResolvedValue(false);
+
+		await expect(
+			useCase.execute({ refreshToken: "old-refresh-token" }),
+		).rejects.toMatchObject({
+			code: "INVALID_REFRESH_TOKEN",
+			statusCode: 401,
+		});
+		expect(refreshTokens.save).not.toHaveBeenCalled();
 	});
 
 	it("detects reuse: valid JWT but no argon2 match → revokes all and throws 401", async () => {

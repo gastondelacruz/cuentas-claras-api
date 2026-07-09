@@ -10,6 +10,8 @@ import * as argon2 from "argon2";
 import { execSync } from "node:child_process";
 import request from "supertest";
 import { AppModule } from "../src/app.module";
+import { GoogleTokenVerifier } from "../src/auth/domain/ports/google-token-verifier";
+import { BusinessException } from "../src/shared/exceptions/business.exception";
 import {
 	MailDeliveryPort,
 	type GroupInvitationEmailInput,
@@ -18,10 +20,29 @@ import {
 import { HttpExceptionFilter } from "../src/shared/filters/http-exception.filter";
 import { ResponseInterceptor } from "../src/shared/interceptors/response.interceptor";
 
+function pushPrismaSchema(): void {
+	try {
+		execSync("npx prisma db push", {
+			cwd: process.cwd(),
+			env: process.env,
+			stdio: "inherit",
+		});
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+
+		throw new Error(
+			`Failed to push Prisma schema for auth e2e tests: ${message}`,
+		);
+	}
+}
+
 describe("Auth login endpoint (e2e)", () => {
 	let app: INestApplication;
 	let postgresContainer: StartedPostgreSqlContainer;
 	let prisma: PrismaClient;
+	let googleTokenVerifier!: {
+		verifyIdToken: ReturnType<typeof vi.fn>;
+	};
 
 	beforeAll(async () => {
 		postgresContainer = await new PostgreSqlContainer("postgres:17-alpine")
@@ -37,12 +58,9 @@ describe("Auth login endpoint (e2e)", () => {
 			"test-refresh-secret-with-at-least-32-chars";
 		process.env.JWT_ACCESS_TTL = "15m";
 		process.env.JWT_REFRESH_TTL = "30d";
+		process.env.GOOGLE_CLIENT_ID = "test-google-client-id";
 
-		execSync("npx prisma db push", {
-			cwd: process.cwd(),
-			env: process.env,
-			stdio: "inherit",
-		});
+		pushPrismaSchema();
 
 		const adapter = new PrismaPg({
 			connectionString: process.env.DATABASE_URL,
@@ -50,9 +68,16 @@ describe("Auth login endpoint (e2e)", () => {
 		prisma = new PrismaClient({ adapter });
 		await prisma.$connect();
 
+		googleTokenVerifier = {
+			verifyIdToken: vi.fn(),
+		};
+
 		const moduleFixture: TestingModule = await Test.createTestingModule({
 			imports: [AppModule],
-		}).compile();
+		})
+			.overrideProvider(GoogleTokenVerifier)
+			.useValue(googleTokenVerifier)
+			.compile();
 
 		app = moduleFixture.createNestApplication();
 		app.useGlobalPipes(
@@ -82,14 +107,20 @@ describe("Auth login endpoint (e2e)", () => {
 	});
 
 	beforeEach(async () => {
+		googleTokenVerifier.verifyIdToken.mockReset();
 		await prisma.refreshToken.deleteMany();
+		await prisma.account.deleteMany();
 		await prisma.user.deleteMany();
 	});
 
 	it("POST /api/v1/auth/login returns 200 with tokens and user after registration", async () => {
 		await request(app.getHttpServer())
 			.post("/api/v1/auth/register")
-			.send({ email: "login@example.com", password: "SecureP4ss!", name: "Jane" })
+			.send({
+				email: "login@example.com",
+				password: "SecureP4ss!",
+				name: "Jane",
+			})
 			.expect(201);
 
 		const response = await request(app.getHttpServer())
@@ -124,10 +155,257 @@ describe("Auth login endpoint (e2e)", () => {
 		expect(loginRefreshToken).toBeDefined();
 	});
 
+	it("POST /api/v1/auth/google creates a Google user with a default account and returns tokens", async () => {
+		googleTokenVerifier.verifyIdToken.mockResolvedValue({
+			googleId: "google-123",
+			email: "google-login@example.com",
+			emailVerified: true,
+			name: "Google User",
+			avatarUrl: "https://example.com/avatar.jpg",
+		});
+
+		const response = await request(app.getHttpServer())
+			.post("/api/v1/auth/google")
+			.send({ idToken: "valid-google-id-token" })
+			.expect(200);
+
+		expect(response.body).toEqual({
+			data: {
+				accessToken: expect.any(String),
+				refreshToken: expect.any(String),
+				user: {
+					id: expect.any(String),
+					name: "Google User",
+					email: "google-login@example.com",
+				},
+			},
+		});
+		expect(googleTokenVerifier.verifyIdToken).toHaveBeenCalledWith(
+			"valid-google-id-token",
+		);
+
+		const user = await prisma.user.findUniqueOrThrow({
+			where: { email: "google-login@example.com" },
+			include: { accounts: true, refreshTokens: true },
+		});
+		expect(user.passwordHash).toBeNull();
+		expect(user.googleId).toBe("google-123");
+		expect(user.avatarUrl).toBe("https://example.com/avatar.jpg");
+		expect(user.emailVerifiedAt).toBeInstanceOf(Date);
+		expect(user.accounts).toHaveLength(1);
+		expect(user.accounts[0]).toMatchObject({
+			name: "Cuenta principal",
+			currency: "ARS",
+			kind: "CASH",
+			isDefault: true,
+		});
+		expect(user.refreshTokens).toHaveLength(1);
+		await expect(
+			argon2.verify(
+				user.refreshTokens[0].tokenHash,
+				response.body.data.refreshToken,
+			),
+		).resolves.toBe(true);
+	});
+
+	it("POST /api/v1/auth/google links an existing app-verified email account", async () => {
+		await request(app.getHttpServer())
+			.post("/api/v1/auth/register")
+			.send({
+				email: "link-google@example.com",
+				password: "SecureP4ss!",
+				name: "Password User",
+			})
+			.expect(201);
+		await prisma.user.update({
+			where: { email: "link-google@example.com" },
+			data: { emailVerifiedAt: new Date("2026-07-01T10:00:00.000Z") },
+		});
+		googleTokenVerifier.verifyIdToken.mockResolvedValue({
+			googleId: "google-link-123",
+			email: "link-google@example.com",
+			emailVerified: true,
+			name: "Google Name",
+			avatarUrl: null,
+		});
+
+		const response = await request(app.getHttpServer())
+			.post("/api/v1/auth/google")
+			.send({ idToken: "valid-google-id-token" })
+			.expect(200);
+
+		expect(response.body.data.user).toMatchObject({
+			name: "Password User",
+			email: "link-google@example.com",
+		});
+		const user = await prisma.user.findUniqueOrThrow({
+			where: { email: "link-google@example.com" },
+		});
+		expect(user.googleId).toBe("google-link-123");
+		expect(user.passwordHash).not.toBeNull();
+		expect(user.emailVerifiedAt).toBeInstanceOf(Date);
+	});
+
+	it("POST /api/v1/auth/google rejects rebinding a verified account already linked to another Google id", async () => {
+		await request(app.getHttpServer())
+			.post("/api/v1/auth/register")
+			.send({
+				email: "already-linked@example.com",
+				password: "SecureP4ss!",
+				name: "Already Linked",
+			})
+			.expect(201);
+		await prisma.user.update({
+			where: { email: "already-linked@example.com" },
+			data: {
+				emailVerifiedAt: new Date("2026-07-01T10:00:00.000Z"),
+				googleId: "google-existing",
+			},
+		});
+		googleTokenVerifier.verifyIdToken.mockResolvedValue({
+			googleId: "google-new",
+			email: "already-linked@example.com",
+			emailVerified: true,
+			name: "Different Google Subject",
+			avatarUrl: null,
+		});
+
+		const response = await request(app.getHttpServer())
+			.post("/api/v1/auth/google")
+			.send({ idToken: "valid-google-id-token" })
+			.expect(409);
+
+		expect(response.body.error).toMatchObject({
+			code: "GOOGLE_ACCOUNT_LINK_CONFLICT",
+			message: "Google login could not be completed safely.",
+			type: "business",
+			statusCode: 409,
+		});
+		const user = await prisma.user.findUniqueOrThrow({
+			where: { email: "already-linked@example.com" },
+		});
+		expect(user.googleId).toBe("google-existing");
+		expect(user.emailVerifiedAt).toBeInstanceOf(Date);
+	});
+
+	it("POST /api/v1/auth/google securely claims an unverified password account", async () => {
+		const registration = await request(app.getHttpServer())
+			.post("/api/v1/auth/register")
+			.send({
+				email: "attacker-precreated@example.com",
+				password: "AttackerP4ss!",
+				name: "Attacker Controlled",
+			})
+			.expect(201);
+		const preexistingUserId = registration.body.data.user.id;
+		const staleRefreshToken = registration.body.data.refreshToken;
+		googleTokenVerifier.verifyIdToken.mockResolvedValue({
+			googleId: "google-victim-123",
+			email: "attacker-precreated@example.com",
+			emailVerified: true,
+			name: "Real Google Owner",
+			avatarUrl: null,
+		});
+
+		const response = await request(app.getHttpServer())
+			.post("/api/v1/auth/google")
+			.send({ idToken: "valid-google-id-token" })
+			.expect(200);
+
+		expect(response.body).toEqual({
+			data: {
+				accessToken: expect.any(String),
+				refreshToken: expect.any(String),
+				user: {
+					id: preexistingUserId,
+					name: "Attacker Controlled",
+					email: "attacker-precreated@example.com",
+				},
+			},
+		});
+		const user = await prisma.user.findUniqueOrThrow({
+			where: { email: "attacker-precreated@example.com" },
+			include: { refreshTokens: true },
+		});
+		expect(user.id).toBe(preexistingUserId);
+		expect(user.googleId).toBe("google-victim-123");
+		expect(user.passwordHash).toBeNull();
+		expect(user.emailVerifiedAt).toBeInstanceOf(Date);
+		expect(user.refreshTokens).toHaveLength(1);
+		await expect(
+			argon2.verify(
+				user.refreshTokens[0].tokenHash,
+				response.body.data.refreshToken,
+			),
+		).resolves.toBe(true);
+
+		await request(app.getHttpServer())
+			.post("/api/v1/auth/login")
+			.send({
+				email: "attacker-precreated@example.com",
+				password: "AttackerP4ss!",
+			})
+			.expect(401);
+		await request(app.getHttpServer())
+			.post("/api/v1/auth/refresh")
+			.send({ refreshToken: staleRefreshToken })
+			.expect(401);
+	});
+
+	it("POST /api/v1/auth/google returns a safe business error for unverified Google email", async () => {
+		googleTokenVerifier.verifyIdToken.mockResolvedValue({
+			googleId: "google-unverified",
+			email: "unverified-google@example.com",
+			emailVerified: false,
+			name: "Unverified User",
+			avatarUrl: null,
+		});
+
+		const response = await request(app.getHttpServer())
+			.post("/api/v1/auth/google")
+			.send({ idToken: "unverified-google-id-token" })
+			.expect(401);
+
+		expect(response.body.error).toMatchObject({
+			code: "GOOGLE_EMAIL_NOT_VERIFIED",
+			message: "Google email must be verified.",
+			type: "business",
+			statusCode: 401,
+		});
+		expect(await prisma.user.count()).toBe(0);
+	});
+
+	it("POST /api/v1/auth/google returns a safe business error for invalid Google tokens", async () => {
+		googleTokenVerifier.verifyIdToken.mockRejectedValue(
+			new BusinessException(
+				"INVALID_GOOGLE_TOKEN",
+				"Invalid Google token.",
+				401,
+			),
+		);
+
+		const response = await request(app.getHttpServer())
+			.post("/api/v1/auth/google")
+			.send({ idToken: "invalid-google-id-token" })
+			.expect(401);
+
+		expect(response.body.error).toMatchObject({
+			code: "INVALID_GOOGLE_TOKEN",
+			message: "Invalid Google token.",
+			type: "business",
+			statusCode: 401,
+		});
+		expect(await prisma.user.count()).toBe(0);
+	});
+
 	it("POST /api/v1/auth/login returns 401 INVALID_CREDENTIALS for wrong password", async () => {
 		await request(app.getHttpServer())
 			.post("/api/v1/auth/register")
-			.send({ email: "login@example.com", password: "SecureP4ss!", name: "Jane" })
+			.send({
+				email: "login@example.com",
+				password: "SecureP4ss!",
+				name: "Jane",
+			})
 			.expect(201);
 
 		const response = await request(app.getHttpServer())
@@ -186,15 +464,12 @@ describe("Auth refresh token endpoint (e2e)", () => {
 		process.env.DATABASE_URL = postgresContainer.getConnectionUri();
 		process.env.NODE_ENV = "test";
 		process.env.JWT_ACCESS_SECRET = "test-access-secret-with-at-least-32-chars";
-		process.env.JWT_REFRESH_SECRET = "test-refresh-secret-with-at-least-32-chars";
+		process.env.JWT_REFRESH_SECRET =
+			"test-refresh-secret-with-at-least-32-chars";
 		process.env.JWT_ACCESS_TTL = "15m";
 		process.env.JWT_REFRESH_TTL = "30d";
 
-		execSync("npx prisma db push", {
-			cwd: process.cwd(),
-			env: process.env,
-			stdio: "inherit",
-		});
+		pushPrismaSchema();
 
 		const adapter = new PrismaPg({
 			connectionString: process.env.DATABASE_URL,
@@ -247,7 +522,11 @@ describe("Auth refresh token endpoint (e2e)", () => {
 
 		await request(app.getHttpServer())
 			.post("/api/v1/auth/register")
-			.send({ email: "refresh@example.com", password: "SecureP4ss!", name: "Refresh User" })
+			.send({
+				email: "refresh@example.com",
+				password: "SecureP4ss!",
+				name: "Refresh User",
+			})
 			.expect(201);
 
 		const loginRes = await request(app.getHttpServer())
@@ -329,11 +608,7 @@ describe("POST /api/v1/auth/logout (e2e)", () => {
 		process.env.JWT_ACCESS_TTL = "15m";
 		process.env.JWT_REFRESH_TTL = "30d";
 
-		execSync("npx prisma db push", {
-			cwd: process.cwd(),
-			env: process.env,
-			stdio: "inherit",
-		});
+		pushPrismaSchema();
 
 		const adapter = new PrismaPg({
 			connectionString: process.env.DATABASE_URL,
@@ -378,7 +653,11 @@ describe("POST /api/v1/auth/logout (e2e)", () => {
 	it("returns 204 and revokes the refresh token (happy path)", async () => {
 		const registerRes = await request(app.getHttpServer())
 			.post("/api/v1/auth/register")
-			.send({ email: "logout@example.com", password: "SecureP4ss!", name: "Logout User" })
+			.send({
+				email: "logout@example.com",
+				password: "SecureP4ss!",
+				name: "Logout User",
+			})
 			.expect(201);
 
 		const { accessToken, refreshToken } = registerRes.body.data;
@@ -400,7 +679,11 @@ describe("POST /api/v1/auth/logout (e2e)", () => {
 	it("returns 400 when refreshToken field is missing", async () => {
 		const registerRes = await request(app.getHttpServer())
 			.post("/api/v1/auth/register")
-			.send({ email: "logout-missing@example.com", password: "SecureP4ss!", name: "Logout User" })
+			.send({
+				email: "logout-missing@example.com",
+				password: "SecureP4ss!",
+				name: "Logout User",
+			})
 			.expect(201);
 
 		await request(app.getHttpServer())
@@ -413,7 +696,11 @@ describe("POST /api/v1/auth/logout (e2e)", () => {
 	it("returns 204 for unknown refresh token (idempotent)", async () => {
 		const registerRes = await request(app.getHttpServer())
 			.post("/api/v1/auth/register")
-			.send({ email: "logout-unk@example.com", password: "SecureP4ss!", name: "Logout User" })
+			.send({
+				email: "logout-unk@example.com",
+				password: "SecureP4ss!",
+				name: "Logout User",
+			})
 			.expect(201);
 
 		await request(app.getHttpServer())
@@ -426,7 +713,11 @@ describe("POST /api/v1/auth/logout (e2e)", () => {
 	it("returns 204 a second time for the same revoked token (idempotent)", async () => {
 		const registerRes = await request(app.getHttpServer())
 			.post("/api/v1/auth/register")
-			.send({ email: "logout-idem@example.com", password: "SecureP4ss!", name: "Logout User" })
+			.send({
+				email: "logout-idem@example.com",
+				password: "SecureP4ss!",
+				name: "Logout User",
+			})
 			.expect(201);
 
 		const { accessToken, refreshToken } = registerRes.body.data;
@@ -447,7 +738,11 @@ describe("POST /api/v1/auth/logout (e2e)", () => {
 	it("POST /api/v1/auth/refresh returns 401 after the refresh token has been revoked via logout", async () => {
 		const registerRes = await request(app.getHttpServer())
 			.post("/api/v1/auth/register")
-			.send({ email: "logout-refresh@example.com", password: "SecureP4ss!", name: "Logout User" })
+			.send({
+				email: "logout-refresh@example.com",
+				password: "SecureP4ss!",
+				name: "Logout User",
+			})
 			.expect(201);
 
 		const { accessToken, refreshToken } = registerRes.body.data;
@@ -480,15 +775,12 @@ describe("Auth registration endpoint (e2e)", () => {
 		process.env.DATABASE_URL = postgresContainer.getConnectionUri();
 		process.env.NODE_ENV = "test";
 		process.env.JWT_ACCESS_SECRET = "test-access-secret-with-at-least-32-chars";
-		process.env.JWT_REFRESH_SECRET = "test-refresh-secret-with-at-least-32-chars";
+		process.env.JWT_REFRESH_SECRET =
+			"test-refresh-secret-with-at-least-32-chars";
 		process.env.JWT_ACCESS_TTL = "15m";
 		process.env.JWT_REFRESH_TTL = "30d";
 
-		execSync("npx prisma db push", {
-			cwd: process.cwd(),
-			env: process.env,
-			stdio: "inherit",
-		});
+		pushPrismaSchema();
 
 		const adapter = new PrismaPg({
 			connectionString: process.env.DATABASE_URL,
@@ -561,9 +853,9 @@ describe("Auth registration endpoint (e2e)", () => {
 			},
 		});
 		expect(user.passwordHash).not.toBe("SecureP4ss!");
-		await expect(argon2.verify(user.passwordHash!, "SecureP4ss!")).resolves.toBe(
-			true,
-		);
+		await expect(
+			argon2.verify(user.passwordHash!, "SecureP4ss!"),
+		).resolves.toBe(true);
 
 		const persistedRefreshToken = await prisma.refreshToken.findFirstOrThrow({
 			where: {
@@ -579,7 +871,9 @@ describe("Auth registration endpoint (e2e)", () => {
 				response.body.data.refreshToken,
 			),
 		).resolves.toBe(true);
-		expect(persistedRefreshToken.expiresAt.getTime()).toBeGreaterThan(Date.now());
+		expect(persistedRefreshToken.expiresAt.getTime()).toBeGreaterThan(
+			Date.now(),
+		);
 
 		const accounts = await prisma.account.findMany({
 			where: {
@@ -657,15 +951,12 @@ describe("Email verification endpoints (e2e)", () => {
 		process.env.DATABASE_URL = postgresContainer.getConnectionUri();
 		process.env.NODE_ENV = "test";
 		process.env.JWT_ACCESS_SECRET = "test-access-secret-with-at-least-32-chars";
-		process.env.JWT_REFRESH_SECRET = "test-refresh-secret-with-at-least-32-chars";
+		process.env.JWT_REFRESH_SECRET =
+			"test-refresh-secret-with-at-least-32-chars";
 		process.env.JWT_ACCESS_TTL = "15m";
 		process.env.JWT_REFRESH_TTL = "30d";
 
-		execSync("npx prisma db push", {
-			cwd: process.cwd(),
-			env: process.env,
-			stdio: "inherit",
-		});
+		pushPrismaSchema();
 
 		const adapter = new PrismaPg({
 			connectionString: process.env.DATABASE_URL,
@@ -719,7 +1010,11 @@ describe("Email verification endpoints (e2e)", () => {
 	it("POST /api/v1/auth/email-verification/verify consumes a registration token and marks the user verified", async () => {
 		const registerResponse = await request(app.getHttpServer())
 			.post("/api/v1/auth/register")
-			.send({ email: "verify@example.com", password: "SecureP4ss!", name: "Verify User" })
+			.send({
+				email: "verify@example.com",
+				password: "SecureP4ss!",
+				name: "Verify User",
+			})
 			.expect(201);
 		const token = extractToken(mail.verificationEmails[0].verificationUrl);
 
@@ -741,7 +1036,11 @@ describe("Email verification endpoints (e2e)", () => {
 	it("POST /api/v1/auth/email-verification/resend invalidates older active tokens and sends one replacement", async () => {
 		const registerResponse = await request(app.getHttpServer())
 			.post("/api/v1/auth/register")
-			.send({ email: "resend@example.com", password: "SecureP4ss!", name: "Resend User" })
+			.send({
+				email: "resend@example.com",
+				password: "SecureP4ss!",
+				name: "Resend User",
+			})
 			.expect(201);
 
 		await request(app.getHttpServer())
@@ -760,7 +1059,11 @@ describe("Email verification endpoints (e2e)", () => {
 	it("GET /api/v1/auth/email-verification/status returns the current verification state", async () => {
 		const registerResponse = await request(app.getHttpServer())
 			.post("/api/v1/auth/register")
-			.send({ email: "status@example.com", password: "SecureP4ss!", name: "Status User" })
+			.send({
+				email: "status@example.com",
+				password: "SecureP4ss!",
+				name: "Status User",
+			})
 			.expect(201);
 
 		await request(app.getHttpServer())
@@ -780,7 +1083,11 @@ describe("Email verification endpoints (e2e)", () => {
 	it("POST /api/v1/auth/email-verification/resend keeps durable state when mail delivery fails", async () => {
 		const registerResponse = await request(app.getHttpServer())
 			.post("/api/v1/auth/register")
-			.send({ email: "mail-fail@example.com", password: "SecureP4ss!", name: "Mail Fail" })
+			.send({
+				email: "mail-fail@example.com",
+				password: "SecureP4ss!",
+				name: "Mail Fail",
+			})
 			.expect(201);
 		mail.failVerification = true;
 
@@ -813,7 +1120,9 @@ class CapturingMailDelivery extends MailDeliveryPort {
 		}
 	}
 
-	async sendGroupInvitationEmail(input: GroupInvitationEmailInput): Promise<void> {
+	async sendGroupInvitationEmail(
+		input: GroupInvitationEmailInput,
+	): Promise<void> {
 		this.groupInvitationEmails.push(input);
 
 		if (this.failInvitation) {
@@ -830,7 +1139,16 @@ class CapturingMailDelivery extends MailDeliveryPort {
 }
 
 function extractToken(url: string): string {
-	const parsed = new URL(url);
+	let parsed: URL;
+
+	try {
+		parsed = new URL(url);
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+
+		throw new Error(`Invalid verification URL: ${message}`);
+	}
+
 	const token = parsed.searchParams.get("token");
 
 	if (!token) {

@@ -11,12 +11,14 @@ import {
 } from "../../../shared/swagger/api-envelope-response.decorator";
 import { LogoutUseCase } from "../../application/use-cases/logout.use-case";
 import { GetEmailVerificationStatusUseCase } from "../../application/use-cases/get-email-verification-status.use-case";
+import { GoogleLoginUseCase } from "../../application/use-cases/google-login.use-case";
 import { LoginUseCase } from "../../application/use-cases/login.use-case";
 import { RefreshTokenUseCase } from "../../application/use-cases/refresh.use-case";
 import { RegisterUseCase } from "../../application/use-cases/register.use-case";
 import { ResendEmailVerificationUseCase } from "../../application/use-cases/resend-email-verification.use-case";
 import { VerifyEmailUseCase } from "../../application/use-cases/verify-email.use-case";
 import { EmailVerificationStatusResponseDto } from "./dto/email-verification-status-response.dto";
+import { GoogleLoginRequestDto } from "./dto/google-login-request.dto";
 import { LoginRequestDto } from "./dto/login-request.dto";
 import { LogoutRequestDto } from "./dto/logout-request.dto";
 import { RefreshRequestDto } from "./dto/refresh-request.dto";
@@ -35,6 +37,8 @@ export class AuthController {
 		private readonly registerUseCase: RegisterUseCase,
 		@Inject(LoginUseCase)
 		private readonly loginUseCase: LoginUseCase,
+		@Inject(GoogleLoginUseCase)
+		private readonly googleLoginUseCase: GoogleLoginUseCase,
 		@Inject(RefreshTokenUseCase)
 		private readonly refreshTokenUseCase: RefreshTokenUseCase,
 		@Inject(LogoutUseCase)
@@ -74,6 +78,22 @@ export class AuthController {
 		);
 
 		return AuthMapper.toLoginResponseDto(result);
+	}
+
+	@Post("google")
+	@Public()
+	@Throttle({ default: getAuthRateLimit() })
+	@HttpCode(HttpStatus.OK)
+	@ApiBody({ type: GoogleLoginRequestDto })
+	@ApiOkDataResponse({ type: RegisterResponseDto })
+	async googleLogin(
+		@Body() body: GoogleLoginRequestDto,
+	): Promise<RegisterResponseDto> {
+		const result = await this.googleLoginUseCase.execute(
+			AuthMapper.toGoogleLoginInput(body),
+		);
+
+		return AuthMapper.toGoogleLoginResponseDto(result);
 	}
 
 	@Post("refresh")

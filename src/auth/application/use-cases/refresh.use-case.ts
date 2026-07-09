@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { BusinessException } from "../../../shared/exceptions/business.exception";
 import { AuthUserRepository } from "../../domain/ports/auth-user.repository";
 import { PasswordHasher } from "../../domain/ports/password-hasher";
@@ -18,10 +18,15 @@ export type RefreshResult = {
 @Injectable()
 export class RefreshTokenUseCase {
 	constructor(
+		@Inject(TokenService)
 		private readonly tokens: TokenService,
+		@Inject(RefreshTokenRepository)
 		private readonly refreshTokenRepository: RefreshTokenRepository,
+		@Inject(AuthUserRepository)
 		private readonly users: AuthUserRepository,
+		@Inject(PasswordHasher)
 		private readonly passwordHasher: PasswordHasher,
+		@Inject(TokenDigestService)
 		private readonly tokenDigest: TokenDigestService,
 	) {}
 
@@ -62,9 +67,6 @@ export class RefreshTokenUseCase {
 			this.rejectInvalidToken();
 		}
 
-		// Rotate: revoke the matched token and issue a new pair
-		await this.refreshTokenRepository.revoke(matchedId!);
-
 		const accessToken = await this.tokens.signAccessToken({
 			sub: user!.id,
 			email: user!.email,
@@ -74,12 +76,20 @@ export class RefreshTokenUseCase {
 
 		const newHash = await this.passwordHasher.hash(newRefresh.token);
 		const newDigest = this.tokenDigest.digest(newRefresh.token);
-		await this.refreshTokenRepository.save({
-			userId: user!.id,
-			tokenHash: newHash,
-			tokenDigest: newDigest,
-			expiresAt: newRefresh.expiresAt,
-		});
+		const rotated = await this.refreshTokenRepository.rotateIfActive(
+			matchedId!,
+			{
+				userId: user!.id,
+				tokenHash: newHash,
+				tokenDigest: newDigest,
+				expiresAt: newRefresh.expiresAt,
+			},
+			user!.emailVerifiedAt ?? null,
+		);
+
+		if (!rotated) {
+			this.rejectInvalidToken();
+		}
 
 		return {
 			accessToken,

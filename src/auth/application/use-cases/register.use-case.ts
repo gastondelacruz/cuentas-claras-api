@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { type ConfigType } from "@nestjs/config";
+import type { ConfigType } from "@nestjs/config";
 import mailConfig from "../../../config/mail.config";
 import { buildAppActionLink } from "../../../shared/application/app-action-link";
 import { BusinessException } from "../../../shared/exceptions/business.exception";
@@ -13,6 +13,7 @@ import { RefreshTokenRepository } from "../../domain/ports/refresh-token.reposit
 import { EmailVerificationTokenRepository } from "../../domain/ports/email-verification-token.repository";
 import { TokenDigestService } from "../../domain/ports/token-digest.service";
 import { TokenService } from "../../domain/ports/token.service";
+import { createDefaultAccountInput } from "../services/default-account";
 import { createRandomToken } from "../services/random-token";
 import { ttlToDate } from "../services/ttl-to-date";
 
@@ -31,12 +32,19 @@ export type RegisterResult = {
 @Injectable()
 export class RegisterUseCase {
 	constructor(
+		@Inject(AuthUserRepository)
 		private readonly users: AuthUserRepository,
+		@Inject(PasswordHasher)
 		private readonly passwordHasher: PasswordHasher,
+		@Inject(TokenService)
 		private readonly tokens: TokenService,
+		@Inject(RefreshTokenRepository)
 		private readonly refreshTokens: RefreshTokenRepository,
+		@Inject(TokenDigestService)
 		private readonly tokenDigest: TokenDigestService,
+		@Inject(EmailVerificationTokenRepository)
 		private readonly verificationTokens: EmailVerificationTokenRepository,
+		@Inject(MailDeliveryPort)
 		private readonly mail: MailDeliveryPort,
 		@Inject(mailConfig.KEY)
 		private readonly mailSettings: ConfigType<typeof mailConfig>,
@@ -60,11 +68,7 @@ export class RegisterUseCase {
 				email: input.email,
 				passwordHash,
 			},
-			{
-				name: "Cuenta principal",
-				currency: "ARS",
-				kind: "cash",
-			},
+			createDefaultAccountInput(),
 		);
 		const accessToken = await this.tokens.signAccessToken({
 			sub: user.id,

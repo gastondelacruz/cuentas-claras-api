@@ -24,6 +24,7 @@ describe("LoginUseCase", () => {
 	};
 	let refreshTokens: {
 		save: ReturnType<typeof vi.fn>;
+		saveIfPasswordUnchanged: ReturnType<typeof vi.fn>;
 	};
 	let tokenDigestService: {
 		digest: ReturnType<typeof vi.fn>;
@@ -45,6 +46,7 @@ describe("LoginUseCase", () => {
 		};
 		refreshTokens = {
 			save: vi.fn(),
+			saveIfPasswordUnchanged: vi.fn(),
 		};
 		tokenDigestService = {
 			digest: vi.fn().mockReturnValue("computed-token-digest"),
@@ -81,7 +83,7 @@ describe("LoginUseCase", () => {
 			expiresAt,
 		});
 		passwordHasher.hash.mockResolvedValue("hashed-refresh-token");
-		refreshTokens.save.mockResolvedValue(undefined);
+		refreshTokens.saveIfPasswordUnchanged.mockResolvedValue(true);
 
 		const result = await useCase.execute({
 			email: "jane@example.com",
@@ -111,12 +113,44 @@ describe("LoginUseCase", () => {
 		expect(tokens.signRefreshToken).toHaveBeenCalledWith({ sub: loginUser.id });
 		expect(passwordHasher.hash).toHaveBeenCalledWith("refresh-token");
 		expect(tokenDigestService.digest).toHaveBeenCalledWith("refresh-token");
-		expect(refreshTokens.save).toHaveBeenCalledWith({
-			userId: loginUser.id,
-			tokenHash: "hashed-refresh-token",
-			tokenDigest: "computed-token-digest",
-			expiresAt,
+		expect(refreshTokens.saveIfPasswordUnchanged).toHaveBeenCalledWith(
+			{
+				userId: loginUser.id,
+				tokenHash: "hashed-refresh-token",
+				tokenDigest: "computed-token-digest",
+				expiresAt,
+			},
+			"stored-hash",
+		);
+		expect(refreshTokens.save).not.toHaveBeenCalled();
+	});
+
+	it("rejects a stale password login when an account claim wins before session persistence", async () => {
+		users.findByEmailForLogin.mockResolvedValue({
+			id: "44444444-4444-4444-4444-444444444444",
+			name: "Claimed",
+			email: "claimed@example.com",
+			passwordHash: "validated-old-hash",
 		});
+		passwordHasher.verify.mockResolvedValue(true);
+		tokens.signAccessToken.mockResolvedValue("stale-access-token");
+		tokens.signRefreshToken.mockResolvedValue({
+			token: "stale-refresh-token",
+			expiresAt: new Date("2026-08-01T00:00:00.000Z"),
+		});
+		passwordHasher.hash.mockResolvedValue("stale-refresh-hash");
+		refreshTokens.saveIfPasswordUnchanged.mockResolvedValue(false);
+
+		await expect(
+			useCase.execute({
+				email: "claimed@example.com",
+				password: "PreviouslyValid1!",
+			}),
+		).rejects.toMatchObject({
+			code: "INVALID_CREDENTIALS",
+			statusCode: 401,
+		});
+		expect(refreshTokens.save).not.toHaveBeenCalled();
 	});
 
 	it("throws INVALID_CREDENTIALS when the email does not exist", async () => {

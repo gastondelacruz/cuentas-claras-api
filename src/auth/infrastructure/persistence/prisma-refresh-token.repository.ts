@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { PrismaService } from "../../../prisma/prisma.service";
 import { DatabaseException } from "../../../shared/exceptions/database.exception";
 import {
@@ -9,7 +9,7 @@ import {
 
 @Injectable()
 export class PrismaRefreshTokenRepository extends RefreshTokenRepository {
-	constructor(private readonly prisma: PrismaService) {
+	constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {
 		super();
 	}
 
@@ -24,6 +24,69 @@ export class PrismaRefreshTokenRepository extends RefreshTokenRepository {
 				},
 			});
 		});
+	}
+
+	async saveIfPasswordUnchanged(
+		input: SaveRefreshTokenInput,
+		expectedPasswordHash: string,
+	): Promise<boolean> {
+		return this.runDatabaseOperation("REFRESH_TOKEN_SAVE_DATABASE_ERROR", () =>
+			this.prisma.$transaction(async (tx) => {
+				const user = await tx.user.updateMany({
+					where: {
+						id: input.userId,
+						passwordHash: expectedPasswordHash,
+					},
+					data: { passwordHash: expectedPasswordHash },
+				});
+
+				if (user.count === 0) {
+					return false;
+				}
+
+				await this.createRefreshToken(tx, input);
+				return true;
+			}),
+		);
+	}
+
+	async rotateIfActive(
+		activeTokenId: string,
+		replacement: SaveRefreshTokenInput,
+		expectedEmailVerifiedAt: Date | null,
+	): Promise<boolean> {
+		return this.runDatabaseOperation("REFRESH_TOKEN_ROTATE_DATABASE_ERROR", () =>
+			this.prisma.$transaction(async (tx) => {
+				const user = await tx.user.updateMany({
+					where: {
+						id: replacement.userId,
+						emailVerifiedAt: expectedEmailVerifiedAt,
+					},
+					data: { emailVerifiedAt: expectedEmailVerifiedAt },
+				});
+
+				if (user.count === 0) {
+					return false;
+				}
+
+				const activeToken = await tx.refreshToken.updateMany({
+					where: {
+						id: activeTokenId,
+						userId: replacement.userId,
+						revokedAt: null,
+						expiresAt: { gt: new Date() },
+					},
+					data: { revokedAt: new Date() },
+				});
+
+				if (activeToken.count === 0) {
+					return false;
+				}
+
+				await this.createRefreshToken(tx, replacement);
+				return true;
+			}),
+		);
 	}
 
 	async findActiveByUserId(userId: string): Promise<RefreshToken[]> {
@@ -79,6 +142,20 @@ export class PrismaRefreshTokenRepository extends RefreshTokenRepository {
 				where: { userId, revokedAt: null },
 				data: { revokedAt: new Date() },
 			});
+		});
+	}
+
+	private async createRefreshToken(
+		client: Pick<PrismaService, "refreshToken">,
+		input: SaveRefreshTokenInput,
+	): Promise<void> {
+		await client.refreshToken.create({
+			data: {
+				userId: input.userId,
+				tokenHash: input.tokenHash,
+				tokenDigest: input.tokenDigest,
+				expiresAt: input.expiresAt,
+			},
 		});
 	}
 

@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { BusinessException } from "../../../shared/exceptions/business.exception";
 import {
 	AuthUserRepository,
@@ -23,10 +23,15 @@ export type LoginResult = {
 @Injectable()
 export class LoginUseCase {
 	constructor(
+		@Inject(AuthUserRepository)
 		private readonly users: AuthUserRepository,
+		@Inject(PasswordHasher)
 		private readonly passwordHasher: PasswordHasher,
+		@Inject(TokenService)
 		private readonly tokens: TokenService,
+		@Inject(RefreshTokenRepository)
 		private readonly refreshTokens: RefreshTokenRepository,
+		@Inject(TokenDigestService)
 		private readonly tokenDigest: TokenDigestService,
 	) {}
 
@@ -61,12 +66,19 @@ export class LoginUseCase {
 		const refreshTokenHash = await this.passwordHasher.hash(refresh.token);
 		const refreshTokenDigest = this.tokenDigest.digest(refresh.token);
 
-		await this.refreshTokens.save({
-			userId: user.id,
-			tokenHash: refreshTokenHash,
-			tokenDigest: refreshTokenDigest,
-			expiresAt: refresh.expiresAt,
-		});
+		const sessionSaved = await this.refreshTokens.saveIfPasswordUnchanged(
+			{
+				userId: user.id,
+				tokenHash: refreshTokenHash,
+				tokenDigest: refreshTokenDigest,
+				expiresAt: refresh.expiresAt,
+			},
+			loginUser!.passwordHash!,
+		);
+
+		if (!sessionSaved) {
+			this.rejectInvalidCredentials();
+		}
 
 		return {
 			accessToken,

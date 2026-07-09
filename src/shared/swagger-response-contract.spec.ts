@@ -1,9 +1,10 @@
-import { type INestApplication } from "@nestjs/common";
+import type { INestApplication } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { LogoutUseCase } from "../auth/application/use-cases/logout.use-case";
 import { GetEmailVerificationStatusUseCase } from "../auth/application/use-cases/get-email-verification-status.use-case";
+import { GoogleLoginUseCase } from "../auth/application/use-cases/google-login.use-case";
 import { LoginUseCase } from "../auth/application/use-cases/login.use-case";
 import { RefreshTokenUseCase } from "../auth/application/use-cases/refresh.use-case";
 import { RegisterUseCase } from "../auth/application/use-cases/register.use-case";
@@ -42,10 +43,18 @@ import { MeController } from "../me/infrastructure/http/me.controller";
 type OpenApiSchema = {
 	$ref?: string;
 	allOf?: OpenApiSchema[];
+	description?: string;
+	enum?: string[];
+	example?: unknown;
 	items?: OpenApiSchema;
+	maxLength?: number;
 	properties?: Record<string, OpenApiSchema>;
 	required?: string[];
 	type?: string;
+};
+
+type OpenApiContentContainer = {
+	content?: Record<string, { schema?: OpenApiSchema }>;
 };
 
 type OpenApiParameter = {
@@ -74,6 +83,7 @@ describe("global Swagger response contract", () => {
 			providers: [
 				{ provide: RegisterUseCase, useValue: executeMock },
 				{ provide: LoginUseCase, useValue: executeMock },
+				{ provide: GoogleLoginUseCase, useValue: executeMock },
 				{ provide: RefreshTokenUseCase, useValue: executeMock },
 				{ provide: LogoutUseCase, useValue: executeMock },
 				{ provide: VerifyEmailUseCase, useValue: executeMock },
@@ -95,7 +105,10 @@ describe("global Swagger response contract", () => {
 				{ provide: UpdateExpenseUseCase, useValue: executeMock },
 				{ provide: DeleteExpenseUseCase, useValue: executeMock },
 				{ provide: GetMeSummaryUseCase, useValue: executeMock },
-				{ provide: GetPersonalTransactionsSummaryUseCase, useValue: executeMock },
+				{
+					provide: GetPersonalTransactionsSummaryUseCase,
+					useValue: executeMock,
+				},
 				{ provide: ListMyAccountsUseCase, useValue: executeMock },
 				{ provide: ListPersonalTransactionsUseCase, useValue: executeMock },
 				{ provide: CreatePersonalTransactionUseCase, useValue: executeMock },
@@ -128,6 +141,12 @@ describe("global Swagger response contract", () => {
 			"#/components/schemas/RegisterResponseDto",
 		);
 		expectEnvelopeDataRef(
+			"/api/v1/auth/google",
+			"post",
+			"200",
+			"#/components/schemas/RegisterResponseDto",
+		);
+		expectEnvelopeDataRef(
 			"/api/v1/auth/refresh",
 			"post",
 			"200",
@@ -136,7 +155,9 @@ describe("global Swagger response contract", () => {
 		expect(document.components?.schemas?.RegisterResponseDto).toMatchObject({
 			required: ["accessToken", "refreshToken", "user"],
 		});
-		expect(responseSchema("/api/v1/auth/logout", "post", "204")).toBeUndefined();
+		expect(
+			responseSchema("/api/v1/auth/logout", "post", "204"),
+		).toBeUndefined();
 	});
 
 	it("documents groups success responses as typed data envelopes", () => {
@@ -224,8 +245,16 @@ describe("global Swagger response contract", () => {
 			"200",
 			"#/components/schemas/CreateExpenseResponseDto",
 		);
-		expect(document.components?.schemas?.ExpenseParticipantResponseDto).toMatchObject({
-			required: ["memberId", "displayName", "owedAmount", "paidAmount", "netAmount"],
+		expect(
+			document.components?.schemas?.ExpenseParticipantResponseDto,
+		).toMatchObject({
+			required: [
+				"memberId",
+				"displayName",
+				"owedAmount",
+				"paidAmount",
+				"netAmount",
+			],
 		});
 	});
 
@@ -269,9 +298,8 @@ describe("global Swagger response contract", () => {
 	});
 
 	it("documents the update-personal-transaction request body, path parameter, and errors", () => {
-		const operation = document.paths[
-			"/api/v1/me/personal-transactions/{transactionId}"
-		]?.patch;
+		const operation =
+			document.paths["/api/v1/me/personal-transactions/{transactionId}"]?.patch;
 		const schema = document.components?.schemas
 			?.UpdatePersonalTransactionRequestDto as OpenApiSchema | undefined;
 
@@ -287,7 +315,11 @@ describe("global Swagger response contract", () => {
 				}),
 			]),
 		);
-		expect(operation?.requestBody?.content?.["application/json"]?.schema).toEqual({
+		const requestBody = operation?.requestBody as
+			| OpenApiContentContainer
+			| undefined;
+
+		expect(requestBody?.content?.["application/json"]?.schema).toEqual({
 			$ref: "#/components/schemas/UpdatePersonalTransactionRequestDto",
 		});
 		expect(operation?.responses).toMatchObject({
@@ -311,19 +343,20 @@ describe("global Swagger response contract", () => {
 			expect(properties[key]?.description, `${key} description`).toBeTruthy();
 			expect(properties[key]?.example, `${key} example`).toBeDefined();
 		}
-		expect((properties.type as OpenApiSchema & { enum?: string[] }).enum).toEqual([
-			"expense",
-			"income",
-		]);
+		expect(
+			(properties.type as OpenApiSchema & { enum?: string[] }).enum,
+		).toEqual(["expense", "income"]);
 	});
 
 	it("documents personal-transactions query parameters with enums and descriptions", () => {
-		const parameters = document.paths["/api/v1/me/personal-transactions"]
-			?.get?.parameters as OpenApiParameter[] | undefined;
+		const parameters = document.paths["/api/v1/me/personal-transactions"]?.get
+			?.parameters as OpenApiParameter[] | undefined;
 
 		expect(parameters).toBeDefined();
 
-		const byName = new Map((parameters ?? []).map((param) => [param.name, param]));
+		const byName = new Map(
+			(parameters ?? []).map((param) => [param.name, param]),
+		);
 
 		expect(byName.get("range")).toMatchObject({
 			in: "query",
@@ -341,19 +374,25 @@ describe("global Swagger response contract", () => {
 		expect(byName.get("from")?.description).toBeTruthy();
 		expect(byName.get("to")).toMatchObject({ in: "query", required: false });
 		expect(byName.get("to")?.description).toBeTruthy();
-		expect(byName.get("cursor")).toMatchObject({ in: "query", required: false });
+		expect(byName.get("cursor")).toMatchObject({
+			in: "query",
+			required: false,
+		});
 		expect(byName.get("cursor")?.description).toBeTruthy();
 		expect(byName.get("limit")).toMatchObject({ in: "query", required: false });
 		expect(byName.get("limit")?.description).toBeTruthy();
 	});
 
 	it("documents personal-transactions summary query parameters with enums and descriptions", () => {
-		const parameters = document.paths["/api/v1/me/personal-transactions/summary"]
-			?.get?.parameters as OpenApiParameter[] | undefined;
+		const parameters = document.paths[
+			"/api/v1/me/personal-transactions/summary"
+		]?.get?.parameters as OpenApiParameter[] | undefined;
 
 		expect(parameters).toBeDefined();
 
-		const byName = new Map((parameters ?? []).map((param) => [param.name, param]));
+		const byName = new Map(
+			(parameters ?? []).map((param) => [param.name, param]),
+		);
 
 		expect(byName.get("range")).toMatchObject({
 			in: "query",
@@ -398,10 +437,9 @@ describe("global Swagger response contract", () => {
 			expect(properties[key]?.example, `${key} example`).toBeDefined();
 		}
 
-		expect((properties.type as OpenApiSchema & { enum?: string[] }).enum).toEqual([
-			"expense",
-			"income",
-		]);
+		expect(
+			(properties.type as OpenApiSchema & { enum?: string[] }).enum,
+		).toEqual(["expense", "income"]);
 		expect(
 			(properties.note as OpenApiSchema & { maxLength?: number }).maxLength,
 		).toBe(200);
@@ -454,11 +492,15 @@ describe("global Swagger response contract", () => {
 		});
 	}
 
-	function responseSchema(path: string, method: "get" | "post" | "patch" | "delete", status: string): OpenApiSchema | undefined {
-		const schema = document.paths[path]?.[method]?.responses?.[status]?.content?.[
-			"application/json"
-		]?.schema as OpenApiSchema | undefined;
+	function responseSchema(
+		path: string,
+		method: "get" | "post" | "patch" | "delete",
+		status: string,
+	): OpenApiSchema | undefined {
+		const response = document.paths[path]?.[method]?.responses?.[status] as
+			| OpenApiContentContainer
+			| undefined;
 
-		return schema;
+		return response?.content?.["application/json"]?.schema;
 	}
 });
