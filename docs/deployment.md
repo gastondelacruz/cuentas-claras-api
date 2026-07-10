@@ -51,5 +51,6 @@ Store these values in GitHub before enabling the flow:
 ## Notes
 
 - The deploy workflow uses the Render API to replace the service env-var list.
+- The Render bulk env-var endpoint expects a raw JSON array body, not `{ envVars }`.
 - Missing GitHub values fail the deploy before Render is called.
 - Release commits are skipped automatically to avoid tag loops.

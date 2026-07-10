@@ -128,7 +128,7 @@ jobs:
                   Authorization: `Bearer ${process.env.RENDER_API_KEY}`,
                   "Content-Type": "application/json",
                 },
-                body: JSON.stringify({ envVars }),
+                body: JSON.stringify(envVars),
               },
             );
 
