@@ -100,8 +100,8 @@ jobs:
           branch="chore/release-v${RELEASE_VERSION}"
           if git ls-remote --exit-code --heads origin \
             "$branch" >/dev/null 2>&1; then
-            echo "skip=true" >> "$GITHUB_OUTPUT"
             echo "branch=$branch" >> "$GITHUB_OUTPUT"
+            echo "exists=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -110,14 +110,26 @@ jobs:
           git commit -m "chore(release): v${RELEASE_VERSION}"
           git push --set-upstream origin "$branch"
           echo "branch=$branch" >> "$GITHUB_OUTPUT"
+          echo "exists=false" >> "$GITHUB_OUTPUT"
 
       - name: Open release pull request
-        if: ${{ steps.branch.outputs.skip != 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_BRANCH: ${{ steps.branch.outputs.branch }}
           RELEASE_VERSION: ${{ steps.version.outputs.version }}
         run: |
+          existing_pr="$(gh pr list \
+            --base main \
+            --head "$RELEASE_BRANCH" \
+            --state open \
+            --json number \
+            --jq '.[0].number // empty')"
+
+          if [ -n "$existing_pr" ]; then
+            echo "Release PR already exists: #$existing_pr"
+            exit 0
+          fi
+
           body=$(cat <<EOF
           Automated semantic release for v${RELEASE_VERSION}.
 
