@@ -7,6 +7,12 @@ on:
       - main
     types:
       - "closed"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to deploy
+        required: true
+        type: string
 
 concurrency:
   group: release-tag-main
@@ -14,20 +20,26 @@ concurrency:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   tag:
     if: >-
       ${{
-        github.event.pull_request.merged == true &&
-        startsWith(github.event.pull_request.head.ref, 'chore/release-v')
+        github.event_name == 'workflow_dispatch' ||
+        (github.event.pull_request.merged == true &&
+        startsWith(github.event.pull_request.head.ref, 'chore/release-v'))
       }}
     runs-on: ubuntu-latest
+    env:
+      CHECKOUT_REF: >-
+        ${{ github.event_name == 'workflow_dispatch' && inputs.tag ||
+        github.event.pull_request.merge_commit_sha }}
     steps:
       - name: Checkout release commit
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          ref: ${{ env.CHECKOUT_REF }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -64,3 +76,12 @@ jobs:
             "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           git tag "$tag"
           git push origin "$tag"
+
+      - name: Trigger Render deploy workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+        shell: bash
+        run: |
+          tag="v${RELEASE_VERSION}"
+          gh workflow run "Production Deploy" --ref "$tag" -f tag="$tag"

@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to deploy
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -18,10 +24,14 @@ jobs:
     runs-on: ubuntu-latest
     env:
       DATABASE_URL: "postgresql://localhost:5432/ci?schema=public"
+      CHECKOUT_REF: >-
+        ${{ github.event_name == 'workflow_dispatch' &&
+        inputs.tag || github.ref_name }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
+          ref: ${{ env.CHECKOUT_REF }}
           fetch-depth: 0
           persist-credentials: false
 
