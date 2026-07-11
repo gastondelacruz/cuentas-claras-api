@@ -1,7 +1,9 @@
 import { Injectable } from "@nestjs/common";
-import { type TransactionType } from "../../domain/value-objects/transaction-type.vo";
-import { type TransactionPeriod } from "../../domain/value-objects/transaction-period.vo";
+import type { TransactionExpenseKind } from "../../domain/value-objects/transaction-expense-kind.vo";
+import type { TransactionType } from "../../domain/value-objects/transaction-type.vo";
+import type { TransactionPeriod } from "../../domain/value-objects/transaction-period.vo";
 import {
+	// biome-ignore lint/style/useImportType: Nest uses this abstract class as a runtime DI token.
 	PersonalTransactionsRepository,
 	type PersonalTransaction,
 } from "../../domain/ports/personal-transactions.repository";
@@ -11,6 +13,8 @@ import { resolveDateRange } from "../services/resolve-date-range";
 export type ListPersonalTransactionsInput = {
 	userId: string;
 	type?: TransactionType;
+	category?: string;
+	expenseKind?: TransactionExpenseKind;
 	period?: TransactionPeriod;
 	dateFrom?: Date;
 	dateTo?: Date;
@@ -49,10 +53,14 @@ export class ListPersonalTransactionsUseCase {
 			new Date(),
 		);
 
+		const expenseKind = input.type === "income" ? undefined : input.expenseKind;
+
 		const { items, nextCursor } =
 			await this.personalTransactionsRepository.findFiltered({
 				userId: input.userId,
 				type: input.type,
+				category: input.category,
+				expenseKind,
 				dateFrom: dateRange?.gte,
 				dateTo: dateRange?.lt,
 				limit: input.limit,

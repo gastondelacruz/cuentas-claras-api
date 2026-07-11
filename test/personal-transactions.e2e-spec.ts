@@ -151,6 +151,50 @@ describe("Personal transactions endpoint (e2e)", () => {
 		});
 	});
 
+	it("GET /api/v1/me/personal-transactions filters by category and expenseKind", async () => {
+		await createTransaction({
+			type: "expense",
+			expenseKind: "fixed",
+			amount: 100,
+			category: "Food",
+		});
+		await createTransaction({
+			type: "expense",
+			expenseKind: "variable",
+			amount: 200,
+			category: "Food",
+		});
+		await createTransaction({
+			type: "expense",
+			expenseKind: "fixed",
+			amount: 300,
+			category: "Transport",
+		});
+
+		const response = await request(app.getHttpServer())
+			.get("/api/v1/me/personal-transactions")
+			.query({
+				type: "expense",
+				category: "Food",
+				expenseKind: "fixed",
+				range: "year",
+			})
+			.expect(200);
+
+		expect(response.body.data.transactions).toHaveLength(1);
+		expect(response.body.data.transactions[0]).toMatchObject({
+			type: "expense",
+			expenseKind: "fixed",
+			amount: 100,
+			category: "Food",
+		});
+		expect(response.body.data).toMatchObject({
+			total: -100,
+			incomeTotal: 0,
+			expenseTotal: 100,
+		});
+	});
+
 	it("GET /api/v1/me/personal-transactions returns 403 when the user has not verified email", async () => {
 		const unverifiedUser = await registerAndLogin(app, {
 			emailVerified: false,

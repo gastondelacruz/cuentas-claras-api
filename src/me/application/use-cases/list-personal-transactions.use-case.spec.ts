@@ -101,6 +101,54 @@ describe("ListPersonalTransactionsUseCase", () => {
 		);
 	});
 
+	it("passes category and expenseKind filters to the repository for expenses", async () => {
+		repository.findFiltered.mockResolvedValue({
+			items: [],
+			nextCursor: null,
+		});
+
+		await useCase.execute({
+			userId: "user-1",
+			type: "expense",
+			category: "Food",
+			expenseKind: "fixed",
+			limit: 10,
+		});
+
+		expect(repository.findFiltered).toHaveBeenCalledWith(
+			expect.objectContaining({
+				category: "Food",
+				expenseKind: "fixed",
+			}),
+		);
+	});
+
+	it("ignores expenseKind when listing income transactions", async () => {
+		repository.findFiltered.mockResolvedValue({
+			items: [],
+			nextCursor: null,
+		});
+
+		await useCase.execute({
+			userId: "user-1",
+			type: "income",
+			category: "Salary",
+			expenseKind: "fixed",
+			limit: 10,
+		});
+
+		expect(repository.findFiltered).toHaveBeenCalledWith(
+			expect.not.objectContaining({
+				expenseKind: "fixed",
+			}),
+		);
+		expect(repository.findFiltered).toHaveBeenCalledWith(
+			expect.objectContaining({
+				category: "Salary",
+			}),
+		);
+	});
+
 	it("only totals transactions returned in the filtered set", async () => {
 		repository.findFiltered.mockResolvedValue({
 			items: [
