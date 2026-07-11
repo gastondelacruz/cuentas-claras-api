@@ -117,6 +117,8 @@ export class MeController {
 		const output = await this.listPersonalTransactionsUseCase.execute({
 			userId,
 			type: query.type as TransactionType | undefined,
+			category: query.category,
+			expenseKind: query.expenseKind as TransactionExpenseKind | undefined,
 			period:
 				query.range === "period"
 					? undefined

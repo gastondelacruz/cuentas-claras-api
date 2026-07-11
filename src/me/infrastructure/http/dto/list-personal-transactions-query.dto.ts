@@ -9,6 +9,7 @@ import {
 	Max,
 	Min,
 } from "class-validator";
+import { TRANSACTION_EXPENSE_KINDS } from "../../../domain/value-objects/transaction-expense-kind.vo";
 import { TRANSACTION_PERIODS } from "../../../domain/value-objects/transaction-period.vo";
 import { TRANSACTION_TYPES } from "../../../domain/value-objects/transaction-type.vo";
 
@@ -47,6 +48,24 @@ export class ListPersonalTransactionsQueryDto {
 	@IsString()
 	@IsIn(TRANSACTION_TYPES)
 	type?: string;
+
+	@ApiPropertyOptional({
+		description: "Filter by exact category name.",
+		example: "Food",
+	})
+	@IsOptional()
+	@IsString()
+	category?: string;
+
+	@ApiPropertyOptional({
+		description: "Filter expenses by kind. Ignored when type is income.",
+		enum: TRANSACTION_EXPENSE_KINDS,
+		example: "fixed",
+	})
+	@IsOptional()
+	@IsString()
+	@IsIn(TRANSACTION_EXPENSE_KINDS)
+	expenseKind?: string;
 
 	@ApiPropertyOptional({
 		description:

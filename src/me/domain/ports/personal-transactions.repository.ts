@@ -42,6 +42,8 @@ export type UpdatePersonalTransactionData = {
 export type PersonalTransactionFilters = {
 	userId: string;
 	type?: string;
+	category?: string;
+	expenseKind?: TransactionExpenseKind;
 	dateFrom?: Date;
 	dateTo?: Date;
 	limit: number;

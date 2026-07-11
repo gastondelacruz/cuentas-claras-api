@@ -52,6 +52,10 @@ export class PrismaPersonalTransactionsRepository extends PersonalTransactionsRe
 					where: {
 						userId: filters.userId,
 						...(filters.type ? { type: filters.type } : {}),
+						...(filters.category ? { category: filters.category } : {}),
+						...(filters.expenseKind
+							? { expenseKind: filters.expenseKind }
+							: {}),
 						...(filters.dateFrom || filters.dateTo
 							? {
 									occurredAt: {

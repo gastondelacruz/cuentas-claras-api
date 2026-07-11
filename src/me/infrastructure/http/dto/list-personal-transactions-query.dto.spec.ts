@@ -11,12 +11,14 @@ describe("ListPersonalTransactionsQueryDto", () => {
 		expect(dto.limit).toBe(20);
 	});
 
-	it("accepts range=period together with from/to/type/cursor", async () => {
+	it("accepts range=period together with from/to/type/category/expenseKind/cursor", async () => {
 		const dto = plainToInstance(ListPersonalTransactionsQueryDto, {
 			range: "period",
 			from: "2026-06-01T00:00:00.000Z",
 			to: "2026-06-30T23:59:59.999Z",
-			type: "income",
+			type: "expense",
+			category: "Food",
+			expenseKind: "fixed",
 			cursor: "abc",
 		});
 
@@ -26,6 +28,8 @@ describe("ListPersonalTransactionsQueryDto", () => {
 		expect(dto.range).toBe("period");
 		expect(dto.from).toBe("2026-06-01T00:00:00.000Z");
 		expect(dto.to).toBe("2026-06-30T23:59:59.999Z");
+		expect(dto.category).toBe("Food");
+		expect(dto.expenseKind).toBe("fixed");
 	});
 
 	it("rejects an invalid ISO 8601 value for from", async () => {
@@ -46,5 +50,15 @@ describe("ListPersonalTransactionsQueryDto", () => {
 		const errors = await validate(dto);
 
 		expect(errors.some((error) => error.property === "to")).toBe(true);
+	});
+
+	it("rejects an invalid expenseKind", async () => {
+		const dto = plainToInstance(ListPersonalTransactionsQueryDto, {
+			expenseKind: "unexpected",
+		});
+
+		const errors = await validate(dto);
+
+		expect(errors.some((error) => error.property === "expenseKind")).toBe(true);
 	});
 });
