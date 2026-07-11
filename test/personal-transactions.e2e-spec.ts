@@ -785,6 +785,63 @@ describe("Personal transactions endpoint (e2e)", () => {
 		expect(updatedAt).toBeGreaterThan(createdAt);
 	});
 
+	it("DELETE /api/v1/me/personal-transactions/:transactionId deletes a transaction owned by the authenticated user", async () => {
+		const transaction = await createTransaction({
+			type: "expense",
+			amount: 100,
+		});
+
+		await request(app.getHttpServer())
+			.delete(`/api/v1/me/personal-transactions/${transaction.id}`)
+			.expect(204)
+			.expect("");
+
+		expect(
+			await prisma.personalTransaction.findUnique({
+				where: { id: transaction.id },
+			}),
+		).toBeNull();
+	});
+
+	it("DELETE /api/v1/me/personal-transactions/:transactionId protects transactions owned by another user", async () => {
+		const transaction = await createTransaction({
+			type: "expense",
+			amount: 100,
+		});
+		const otherUser = await registerAndLogin(app);
+
+		const response = await request(app.getHttpServer())
+			.delete(`/api/v1/me/personal-transactions/${transaction.id}`)
+			.set("Authorization", otherUser.authorization)
+			.expect(404);
+
+		expect(response.body.error).toMatchObject({
+			code: "PERSONAL_TX_NOT_FOUND",
+			statusCode: 404,
+		});
+		expect(
+			await prisma.personalTransaction.findUnique({
+				where: { id: transaction.id },
+			}),
+		).toMatchObject({
+			id: transaction.id,
+			userId: DEV_USER_ID,
+		});
+	});
+
+	it("DELETE /api/v1/me/personal-transactions/:transactionId returns 404 for a non-existent transaction", async () => {
+		const response = await request(app.getHttpServer())
+			.delete(
+				"/api/v1/me/personal-transactions/00000000-0000-0000-0000-000000000999",
+			)
+			.expect(404);
+
+		expect(response.body.error).toMatchObject({
+			code: "PERSONAL_TX_NOT_FOUND",
+			statusCode: 404,
+		});
+	});
+
 	it("PATCH /api/v1/me/personal-transactions/:transactionId updates expense kind", async () => {
 		const transaction = await createTransaction({
 			type: "expense",

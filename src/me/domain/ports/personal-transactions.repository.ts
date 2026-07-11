@@ -92,4 +92,5 @@ export abstract class PersonalTransactionsRepository {
 		userId: string,
 		data: UpdatePersonalTransactionData,
 	): Promise<PersonalTransaction | null>;
+	abstract delete(id: string, userId: string): Promise<boolean>;
 }
