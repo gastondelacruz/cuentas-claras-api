@@ -141,6 +141,19 @@ export class PrismaPersonalTransactionsRepository extends PersonalTransactionsRe
 		);
 	}
 
+	async delete(id: string, userId: string): Promise<boolean> {
+		return this.runDatabaseOperation(
+			"PERSONAL_TX_DELETE_DATABASE_ERROR",
+			async () => {
+				const result = await this.prisma.personalTransaction.deleteMany({
+					where: { id, userId },
+				});
+
+				return result.count > 0;
+			},
+		);
+	}
+
 	async getSummary(
 		filters: PersonalTransactionsSummaryFilters,
 	): Promise<PersonalTransactionsSummary> {

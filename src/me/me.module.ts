@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { AuthModule } from "../auth/auth.module";
 import { EmailVerifiedGuard } from "../auth/infrastructure/security/email-verified.guard";
 import { CreatePersonalTransactionUseCase } from "./application/use-cases/create-personal-transaction.use-case";
+import { DeletePersonalTransactionUseCase } from "./application/use-cases/delete-personal-transaction.use-case";
 import { GetMeSummaryUseCase } from "./application/use-cases/get-me-summary.use-case";
 import { GetPersonalTransactionsSummaryUseCase } from "./application/use-cases/get-personal-transactions-summary.use-case";
 import { ListMyAccountsUseCase } from "./application/use-cases/list-my-accounts.use-case";
@@ -26,6 +27,7 @@ import { PrismaPersonalTransactionsRepository } from "./infrastructure/persisten
 		GetPersonalTransactionsSummaryUseCase,
 		CreatePersonalTransactionUseCase,
 		UpdatePersonalTransactionUseCase,
+		DeletePersonalTransactionUseCase,
 		PrismaMeSummaryRepository,
 		PrismaAccountsRepository,
 		PrismaPersonalTransactionsRepository,

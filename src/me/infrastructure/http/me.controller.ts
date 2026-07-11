@@ -2,7 +2,10 @@ import {
 	BadRequestException,
 	Body,
 	Controller,
+	Delete,
 	Get,
+	HttpCode,
+	HttpStatus,
 	Param,
 	ParseUUIDPipe,
 	Patch,
@@ -15,6 +18,7 @@ import {
 	ApiBadRequestResponse,
 	ApiBearerAuth,
 	ApiBody,
+	ApiNoContentResponse,
 	ApiNotFoundResponse,
 	ApiParam,
 	ApiUnauthorizedResponse,
@@ -27,6 +31,8 @@ import {
 } from "../../../shared/swagger/api-envelope-response.decorator";
 // biome-ignore lint/style/useImportType: Nest uses this class as a runtime DI token.
 import { CreatePersonalTransactionUseCase } from "../../application/use-cases/create-personal-transaction.use-case";
+// biome-ignore lint/style/useImportType: Nest uses this class as a runtime DI token.
+import { DeletePersonalTransactionUseCase } from "../../application/use-cases/delete-personal-transaction.use-case";
 // biome-ignore lint/style/useImportType: Nest uses this class as a runtime DI token.
 import { GetMeSummaryUseCase } from "../../application/use-cases/get-me-summary.use-case";
 // biome-ignore lint/style/useImportType: Nest uses this class as a runtime DI token.
@@ -70,6 +76,7 @@ export class MeController {
 		private readonly getPersonalTransactionsSummaryUseCase: GetPersonalTransactionsSummaryUseCase,
 		private readonly createPersonalTransactionUseCase: CreatePersonalTransactionUseCase,
 		private readonly updatePersonalTransactionUseCase: UpdatePersonalTransactionUseCase,
+		private readonly deletePersonalTransactionUseCase: DeletePersonalTransactionUseCase,
 	) {}
 
 	@Get("summary")
@@ -208,6 +215,26 @@ export class MeController {
 		});
 
 		return PersonalTransactionsMapper.toUpdateResponseDto(transaction);
+	}
+
+	@Delete("personal-transactions/:transactionId")
+	@HttpCode(HttpStatus.NO_CONTENT)
+	@ApiNoContentResponse({ description: "Personal transaction deleted successfully." })
+	@ApiParam({
+		name: "transactionId",
+		description: "Personal transaction identifier.",
+		example: "550e8400-e29b-41d4-a716-446655440000",
+	})
+	@ApiUnauthorizedResponse({ description: "Authentication is required." })
+	@ApiNotFoundResponse({ description: "Personal transaction not found." })
+	async deletePersonalTransaction(
+		@CurrentUser("userId") userId: string,
+		@Param("transactionId", ParseUUIDPipe) transactionId: string,
+	): Promise<void> {
+		await this.deletePersonalTransactionUseCase.execute({
+			userId,
+			transactionId,
+		});
 	}
 
 	private validatePeriodQuery(
