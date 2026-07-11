@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.0](https://github.com/gastondelacruz/cuentas-claras-api/compare/v1.2.0...v1.3.0) (2026-07-11)
+
+
+### Features
+
+* **personal-transactions:** add deletion endpoint ([0430063](https://github.com/gastondelacruz/cuentas-claras-api/commit/043006396f090a2c2743eceda13c7e2f20257e45))
+* **personal-transactions:** add deletion endpoint ([533de2a](https://github.com/gastondelacruz/cuentas-claras-api/commit/533de2aed5e5f7a0a3a73ebfdd9f3a7ac829b82b))
+
 ## [1.2.0](https://github.com/gastondelacruz/cuentas-claras-api/compare/v1.1.1...v1.2.0) (2026-07-11)
 
 
