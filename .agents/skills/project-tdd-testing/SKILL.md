@@ -21,13 +21,13 @@ Use this skill before implementing a new feature, fixing a bug, changing observa
 - Unit tests live beside source files as `src/**/*.spec.ts`.
 - E2E tests live under `test/**/*.e2e-spec.ts`.
 - E2E uses the real Nest app, `supertest`, and PostgreSQL via Testcontainers.
-- Run `npm test` after test-impacting changes.
-- Run `npm run test:e2e` when HTTP or DB flow changes.
+- Run `pnpm test` after test-impacting changes.
+- Run `pnpm run test:e2e` when HTTP or DB flow changes.
 
 ## Decision Gates
 
 | Change type | Preferred test |
-|---|---|
+| --- | --- |
 | Domain rules, entities, value objects, use cases | Unit |
 | Controllers, DTO validation, guards, interceptors, HTTP contracts | Unit and often E2E |
 | Prisma mappings or schema-dependent behavior | E2E, plus unit for pure mapping logic |
@@ -39,11 +39,12 @@ Use this skill before implementing a new feature, fixing a bug, changing observa
 2. Write the failing unit or E2E test first.
 3. Implement the minimum code to pass.
 4. Refactor while keeping tests green.
-5. Re-run `npm test`, and also `npm run test:e2e` for HTTP/DB changes.
+5. Re-run `pnpm test`, and also `pnpm run test:e2e` for HTTP/DB changes.
 
 ## Output Contract
 
 When reporting work, include:
+
 - which tests were added or updated,
 - whether TDD or regression-first was followed,
 - whether the change required E2E coverage,

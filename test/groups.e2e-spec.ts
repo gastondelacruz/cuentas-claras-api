@@ -46,13 +46,13 @@ describe("Groups endpoints (e2e)", () => {
 		process.env.JWT_ACCESS_TTL = "15m";
 		process.env.JWT_REFRESH_TTL = "30d";
 
-		execSync("npx prisma db push", {
+		execSync("pnpm exec prisma db push", {
 			cwd: process.cwd(),
 			env: process.env,
 			stdio: "inherit",
 		});
 
-		execSync("npx prisma db seed", {
+		execSync("pnpm exec prisma db seed", {
 			cwd: process.cwd(),
 			env: process.env,
 			stdio: "inherit",
@@ -141,7 +141,10 @@ describe("Groups endpoints (e2e)", () => {
 			.get("/api/v1/groups")
 			.set(
 				"Authorization",
-				createExpiredBearerToken({ userId: DEV_USER_ID, email: DEV_USER_EMAIL }),
+				createExpiredBearerToken({
+					userId: DEV_USER_ID,
+					email: DEV_USER_EMAIL,
+				}),
 			)
 			.expect(401);
 	});
@@ -299,7 +302,10 @@ describe("Groups endpoints (e2e)", () => {
 
 		await request(app.getHttpServer())
 			.post("/api/v1/groups/invitations/accept")
-			.set("Authorization", createBearerToken({ userId: invitee.id, email: invitee.email }))
+			.set(
+				"Authorization",
+				createBearerToken({ userId: invitee.id, email: invitee.email }),
+			)
 			.send({ token })
 			.expect(204);
 
@@ -341,7 +347,10 @@ describe("Groups endpoints (e2e)", () => {
 				emailVerifiedAt: new Date(),
 			},
 		});
-		const authorization = createBearerToken({ userId: invitee.id, email: invitee.email });
+		const authorization = createBearerToken({
+			userId: invitee.id,
+			email: invitee.email,
+		});
 		const token = extractToken(mail.groupInvitationEmails[0].invitationUrl);
 
 		await request(app.getHttpServer())
@@ -419,12 +428,13 @@ describe("Groups endpoints (e2e)", () => {
 			})
 			.expect(201);
 
-		const pendingMemberBeforeRegistration = await prisma.groupMember.findFirstOrThrow({
-			where: {
-				groupId: createResponse.body.data.id,
-				email: "new.member@example.com",
-			},
-		});
+		const pendingMemberBeforeRegistration =
+			await prisma.groupMember.findFirstOrThrow({
+				where: {
+					groupId: createResponse.body.data.id,
+					email: "new.member@example.com",
+				},
+			});
 		expect(pendingMemberBeforeRegistration.userId).toBeNull();
 
 		const registerResponse = await request(app.getHttpServer())
@@ -436,12 +446,13 @@ describe("Groups endpoints (e2e)", () => {
 			})
 			.expect(201);
 
-		const pendingMemberAfterRegistration = await prisma.groupMember.findFirstOrThrow({
-			where: {
-				groupId: createResponse.body.data.id,
-				email: "new.member@example.com",
-			},
-		});
+		const pendingMemberAfterRegistration =
+			await prisma.groupMember.findFirstOrThrow({
+				where: {
+					groupId: createResponse.body.data.id,
+					email: "new.member@example.com",
+				},
+			});
 		expect(pendingMemberAfterRegistration.userId).toBeNull();
 
 		await prisma.user.update({
@@ -555,10 +566,10 @@ describe("Groups endpoints (e2e)", () => {
 				currency: "ARS",
 				members: [
 					{
-					email: "ana@example.com",
-				},
-			],
-		})
+						email: "ana@example.com",
+					},
+				],
+			})
 			.expect(400);
 
 		await request(app.getHttpServer())
@@ -1323,12 +1334,18 @@ describe("Groups endpoints (e2e)", () => {
 		});
 
 		const devMember = members.find((member) => member.userId === DEV_USER_ID);
-		const updatedMember = members.find((member) => member.id === existingToUpdate.id);
-		const removedMember = members.find((member) => member.id === existingToRemove.id);
+		const updatedMember = members.find(
+			(member) => member.id === existingToUpdate.id,
+		);
+		const removedMember = members.find(
+			(member) => member.id === existingToRemove.id,
+		);
 		const reactivatedMember = members.find(
 			(member) => member.id === removedToReactivate.id,
 		);
-		const newMember = members.find((member) => member.email === "diego@example.com");
+		const newMember = members.find(
+			(member) => member.email === "diego@example.com",
+		);
 
 		expect(devMember?.removedAt).toBeNull();
 		expect(updatedMember).toMatchObject({
@@ -1766,7 +1783,9 @@ class CapturingMailDelivery extends MailDeliveryPort {
 		}
 	}
 
-	async sendGroupInvitationEmail(input: GroupInvitationEmailInput): Promise<void> {
+	async sendGroupInvitationEmail(
+		input: GroupInvitationEmailInput,
+	): Promise<void> {
 		this.groupInvitationEmails.push(input);
 
 		if (this.failInvitation) {

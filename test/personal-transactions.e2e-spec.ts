@@ -53,8 +53,8 @@ describe("Personal transactions endpoint (e2e)", () => {
 		process.env.JWT_ACCESS_TTL = "15m";
 		process.env.JWT_REFRESH_TTL = "30d";
 
-		runPrismaCommand("npx prisma migrate deploy");
-		runPrismaCommand("npx prisma db seed");
+		runPrismaCommand("pnpm exec prisma migrate deploy");
+		runPrismaCommand("pnpm exec prisma db seed");
 
 		const adapter = new PrismaPg({
 			connectionString: process.env.DATABASE_URL,

@@ -15,9 +15,7 @@ describe("Health endpoint (e2e)", () => {
 	let postgresContainer: StartedPostgreSqlContainer;
 
 	beforeAll(async () => {
-		postgresContainer = await new PostgreSqlContainer(
-			"postgres:17-alpine",
-		)
+		postgresContainer = await new PostgreSqlContainer("postgres:17-alpine")
 			.withDatabase("cuentas_claras_test")
 			.withUsername("postgres")
 			.withPassword("postgres")
@@ -26,7 +24,7 @@ describe("Health endpoint (e2e)", () => {
 		process.env.DATABASE_URL = postgresContainer.getConnectionUri();
 		process.env.NODE_ENV = "test";
 
-		execSync("npx prisma db push", {
+		execSync("pnpm exec prisma db push", {
 			cwd: process.cwd(),
 			env: process.env,
 			stdio: "inherit",
@@ -60,7 +58,9 @@ describe("Health endpoint (e2e)", () => {
 	});
 
 	it("GET /health returns ok status", async () => {
-		const response = await request(app.getHttpServer()).get("/health").expect(200);
+		const response = await request(app.getHttpServer())
+			.get("/health")
+			.expect(200);
 
 		expect(response.body).toEqual({
 			data: {

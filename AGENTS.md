@@ -9,12 +9,12 @@ Operational guide for AI agents and humans working in this repo. Read this **bef
 3. For architecture-sensitive changes, read `.agents/skills/project-architecture/SKILL.md`.
 4. For new features, bug fixes, or test-impacting work, read `.agents/skills/project-tdd-testing/SKILL.md`.
 5. Write or modify code following the [Conventions](#conventions).
-6. Finish feature work with `npm run verify` when practical. If the full verify flow is not practical, run and report the closest subset (`npm test`, `npm run test:e2e`, `npm run security:audit`).
+6. Finish feature work with `pnpm run verify` when practical. If the full verify flow is not practical, run and report the closest subset (`pnpm test`, `pnpm run test:e2e`, `pnpm run security:audit`).
 
 ## Interaction rules
 
 | Rule | Detail |
-|------|--------|
+| ------ | -------- |
 | Code approval | Before adding or modifying code, show the plan or diff and **wait for explicit approval**. Do not continue without an OK. |
 | Commit approval | **Never** run `git commit` (or `push`, or open a PR) without approval first. Show what will be committed and wait for confirmation. |
 | One thing at a time | If there are multiple changes, show them in reviewable parts instead of all at once. |
@@ -22,7 +22,7 @@ Operational guide for AI agents and humans working in this repo. Read this **bef
 ## Stack
 
 | Layer | Technology |
-|------|------------|
+| ------ | ------------ |
 | Runtime | Node.js 26, TypeScript (strict) |
 | Framework | NestJS 11 |
 | ORM | Prisma 7 (driver adapter `@prisma/adapter-pg`) |
@@ -38,7 +38,7 @@ Read `.agents/skills/project-architecture/SKILL.md` before changing `src/` struc
 ## Conventions
 
 | Topic | Rule |
-|------|------|
+| ------ | ------ |
 | Project artifact language | Write source code, docs, comments, tests, UI copy, and other repo artifacts in **English by default**. Chat language is separate and may follow the user. |
 | Indentation | **Tabs** (no spaces). |
 | Quotes | **Double quotes** in imports and TS strings. |
@@ -54,13 +54,13 @@ Read `.agents/skills/project-tdd-testing/SKILL.md` before implementing new behav
 Keep these repo-specific operational notes in mind:
 
 | Command | Purpose |
-|---------|---------|
-| `npm test` | Run unit tests (`src/**/*.spec.ts`) once. |
-| `npm run test:watch` | Run tests in watch mode during development. |
-| `npm run test:cov` | Run unit tests with V8 coverage output in `./coverage`. |
-| `npm run test:e2e` | Run E2E tests (`test/**/*.e2e-spec.ts`) serially against the real app + DB. |
-| `npm run security:audit` | Run the dependency vulnerability gate with `audit-ci`. |
-| `npm run verify` | Run unit tests, E2E tests, and the security audit in the same order used by CI. |
+| --------- | --------- |
+| `pnpm test` | Run unit tests (`src/**/*.spec.ts`) once. |
+| `pnpm run test:watch` | Run tests in watch mode during development. |
+| `pnpm run test:cov` | Run unit tests with V8 coverage output in `./coverage`. |
+| `pnpm run test:e2e` | Run E2E tests (`test/**/*.e2e-spec.ts`) serially against the real app + DB. |
+| `pnpm run security:audit` | Run the fail-closed, path-scoped pnpm dependency vulnerability gate. |
+| `pnpm run verify` | Run unit tests, E2E tests, and the security audit in the same order used by CI. |
 
 Key notes:
 
@@ -91,7 +91,7 @@ These live **inside the repo**, versioned with the codebase and pinned to the st
 **Daily use** — most work lands here:
 
 | If you touch... | Skill | Path |
-|--------|-------|------|
+| -------- | ------- | ------ |
 | Repo-specific hexagonal + screaming architecture decisions | `project-architecture` | `.agents/skills/project-architecture/SKILL.md` |
 | Repo-specific TDD, unit vs E2E, and verification rules | `project-tdd-testing` | `.agents/skills/project-tdd-testing/SKILL.md` |
 | NestJS code (modules, DI, guards, controllers, providers) | `nestjs-best-practices` | `.agents/skills/nestjs-best-practices/SKILL.md` |
@@ -104,7 +104,7 @@ These live **inside the repo**, versioned with the codebase and pinned to the st
 **Secondary reference** — only when the task explicitly needs it:
 
 | If you touch... | Skill | Path |
-|--------|-------|------|
+| -------- | ------- | ------ |
 | Node backend API / middleware / error-handling patterns | `nodejs-backend-patterns` | `.agents/skills/nodejs-backend-patterns/SKILL.md` |
 | Prisma provider setup / connection issues | `prisma-database-setup` | `.agents/skills/prisma-database-setup/SKILL.md` |
 | Prisma Postgres provisioning / Console / create-db | `prisma-postgres` | `.agents/skills/prisma-postgres/SKILL.md` |
@@ -116,7 +116,7 @@ These live **inside the repo**, versioned with the codebase and pinned to the st
 These live **outside the repo** (installed in `~/.config/opencode/skills` and equivalent paths). **Do not copy them into the project.** The canonical index is `.atl/skill-registry.md`:
 
 | Task context | Skill to read |
-|----------------------|--------------|
+| ---------------------- | -------------- |
 | Create/open/prepare a Pull Request | `branch-pr` |
 | Large PR (>400 lines) or slice-based work | `chained-pr` |
 | Plan commits as reviewable work units | `work-unit-commits` |
@@ -145,7 +145,7 @@ gentle-ai skill-registry refresh --force
 - [ ] If architecture-sensitive code changed, `.agents/skills/project-architecture/SKILL.md` was read and followed.
 - [ ] For new features, followed TDD: red test first, minimal implementation second, refactor last.
 - [ ] Tabs, double quotes, `kebab-case.<role>.ts` names.
-- [ ] Added or updated tests and `npm test` passes.
-- [ ] If HTTP/DB flow changed, `npm run test:e2e` passes.
-- [ ] Before finishing a feature, `npm run verify` passes or any skipped/failing part is reported with the exact command and result.
+- [ ] Added or updated tests and `pnpm test` passes.
+- [ ] If HTTP/DB flow changed, `pnpm run test:e2e` passes.
+- [ ] Before finishing a feature, `pnpm run verify` passes or any skipped/failing part is reported with the exact command and result.
 - [ ] No secrets are committed (`.env` is in `.gitignore`).

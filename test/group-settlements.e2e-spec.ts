@@ -39,13 +39,13 @@ describe("Group settlements endpoint (e2e)", () => {
 		process.env.JWT_ACCESS_TTL = "15m";
 		process.env.JWT_REFRESH_TTL = "30d";
 
-		execSync("npx prisma db push", {
+		execSync("pnpm exec prisma db push", {
 			cwd: process.cwd(),
 			env: process.env,
 			stdio: "inherit",
 		});
 
-		execSync("npx prisma db seed", {
+		execSync("pnpm exec prisma db seed", {
 			cwd: process.cwd(),
 			env: process.env,
 			stdio: "inherit",
@@ -213,7 +213,12 @@ describe("Group settlements endpoint (e2e)", () => {
 		});
 		expect(response.body.data.balances).toEqual([
 			{ memberId: anaId, displayName: "Ana", balance: 0, currency: "ARS" },
-			{ memberId: gastonId, displayName: "Gaston", balance: 0, currency: "ARS" },
+			{
+				memberId: gastonId,
+				displayName: "Gaston",
+				balance: 0,
+				currency: "ARS",
+			},
 		]);
 
 		const persistedPayment = await prisma.settlementPayment.findUnique({
