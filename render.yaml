@@ -12,7 +12,10 @@ services:
     plan: free
     branch: main
     autoDeployTrigger: "off"
-    buildCommand: npm install --global pnpm@10.26.1 && pnpm install --frozen-lockfile && pnpm run prisma:generate && pnpm run build
+    buildCommand: >-
+      corepack pnpm@10.26.1 install --frozen-lockfile &&
+      corepack pnpm@10.26.1 run prisma:generate &&
+      corepack pnpm@10.26.1 run build
     preDeployCommand: pnpm run prisma:migrate:deploy
     startCommand: pnpm run start:prod
     healthCheckPath: /health
