@@ -40,13 +40,13 @@ describe("Accounts endpoint (e2e)", () => {
 		process.env.JWT_ACCESS_TTL = "15m";
 		process.env.JWT_REFRESH_TTL = "30d";
 
-		execSync("npx prisma migrate deploy", {
+		execSync("pnpm exec prisma migrate deploy", {
 			cwd: process.cwd(),
 			env: process.env,
 			stdio: "inherit",
 		});
 
-		execSync("npx prisma db seed", {
+		execSync("pnpm exec prisma db seed", {
 			cwd: process.cwd(),
 			env: process.env,
 			stdio: "inherit",
@@ -152,7 +152,9 @@ describe("Accounts endpoint (e2e)", () => {
 	});
 
 	it("GET /api/v1/me/accounts returns 403 when the user has not verified email", async () => {
-		const unverifiedUser = await registerAndLogin(app, { emailVerified: false });
+		const unverifiedUser = await registerAndLogin(app, {
+			emailVerified: false,
+		});
 
 		const response = await request(app.getHttpServer())
 			.get("/api/v1/me/accounts")

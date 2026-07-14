@@ -42,13 +42,13 @@ describe("Expenses endpoints (e2e)", () => {
 		process.env.JWT_ACCESS_TTL = "15m";
 		process.env.JWT_REFRESH_TTL = "30d";
 
-		execSync("npx prisma db push", {
+		execSync("pnpm exec prisma db push", {
 			cwd: process.cwd(),
 			env: process.env,
 			stdio: "inherit",
 		});
 
-		execSync("npx prisma db seed", {
+		execSync("pnpm exec prisma db seed", {
 			cwd: process.cwd(),
 			env: process.env,
 			stdio: "inherit",
@@ -235,7 +235,10 @@ describe("Expenses endpoints (e2e)", () => {
 	}
 
 	it("POST creates an expense with an equal split and persists the splits", async () => {
-		const { group, members } = await createAccessibleGroupWithMembers(["Gaston", "Ana"]);
+		const { group, members } = await createAccessibleGroupWithMembers([
+			"Gaston",
+			"Ana",
+		]);
 		const [, gaston, ana] = members;
 
 		const response = await request(app.getHttpServer())
@@ -487,9 +490,7 @@ describe("Expenses endpoints (e2e)", () => {
 		].map((expense: { id: string }) => expense.id);
 
 		expect(
-			thirdPage.body.data.expenses.map(
-				(expense: { id: string }) => expense.id,
-			),
+			thirdPage.body.data.expenses.map((expense: { id: string }) => expense.id),
 		).toEqual(expectedIds.slice(2));
 		expect(thirdPage.body.data.nextCursor).toBeNull();
 		expect(pagedIds).toEqual(expectedIds);
@@ -929,7 +930,11 @@ describe("Expenses endpoints (e2e)", () => {
 	});
 
 	it("POST distributes remainder cents so the split stays exact", async () => {
-		const { group, members } = await createAccessibleGroupWithMembers(["A", "B", "C"]);
+		const { group, members } = await createAccessibleGroupWithMembers([
+			"A",
+			"B",
+			"C",
+		]);
 		const [, a, b, c] = members;
 
 		const response = await request(app.getHttpServer())
@@ -950,14 +955,16 @@ describe("Expenses endpoints (e2e)", () => {
 		);
 
 		expect(owed).toEqual([33.34, 33.33, 33.33]);
-		expect(owed.reduce((total: number, value: number) => total + value, 0)).toBeCloseTo(
-			100,
-			2,
-		);
+		expect(
+			owed.reduce((total: number, value: number) => total + value, 0),
+		).toBeCloseTo(100, 2);
 	});
 
 	it("POST returns 400 for invalid payloads", async () => {
-		const { group, members } = await createAccessibleGroupWithMembers(["Gaston", "Ana"]);
+		const { group, members } = await createAccessibleGroupWithMembers([
+			"Gaston",
+			"Ana",
+		]);
 		const [, gaston, ana] = members;
 
 		const validBody = {
@@ -1009,7 +1016,10 @@ describe("Expenses endpoints (e2e)", () => {
 	});
 
 	it("POST returns 400 when the payer does not belong to the group", async () => {
-		const { group, members } = await createAccessibleGroupWithMembers(["Gaston", "Ana"]);
+		const { group, members } = await createAccessibleGroupWithMembers([
+			"Gaston",
+			"Ana",
+		]);
 		const [, gaston, ana] = members;
 
 		const response = await request(app.getHttpServer())
@@ -1031,7 +1041,9 @@ describe("Expenses endpoints (e2e)", () => {
 	});
 
 	it("POST returns 400 when a participant does not belong to the group", async () => {
-		const { group, members } = await createAccessibleGroupWithMembers(["Gaston"]);
+		const { group, members } = await createAccessibleGroupWithMembers([
+			"Gaston",
+		]);
 		const [, gaston] = members;
 
 		const response = await request(app.getHttpServer())
@@ -1053,7 +1065,10 @@ describe("Expenses endpoints (e2e)", () => {
 	});
 
 	it("POST returns 400 when the payer is not part of the participants", async () => {
-		const { group, members } = await createAccessibleGroupWithMembers(["Gaston", "Ana"]);
+		const { group, members } = await createAccessibleGroupWithMembers([
+			"Gaston",
+			"Ana",
+		]);
 		const [, gaston, ana] = members;
 
 		const response = await request(app.getHttpServer())

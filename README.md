@@ -11,16 +11,16 @@ NestJS REST API for Cuentas Claras, a shared-expenses and personal finance app.
 - `class-validator` / `class-transformer`
 - Swagger at `/docs`
 - Vitest for unit and E2E tests
-- `audit-ci` for dependency vulnerability checks
+- A repository-owned pnpm audit validator for dependency vulnerability checks
 
 ## Local setup
 
 ```bash
-npm install
+pnpm install
 cp .env.example .env
 docker compose up -d postgres
-npm run prisma:migrate
-npm run start:dev
+pnpm run prisma:migrate
+pnpm run start:dev
 ```
 
 The API starts on `http://localhost:3000` by default.
@@ -42,9 +42,9 @@ The API starts on `http://localhost:3000` by default.
 ## Prisma commands
 
 ```bash
-npm run prisma:generate
-npm run prisma:migrate
-npm run prisma:studio
+pnpm run prisma:generate
+pnpm run prisma:migrate
+pnpm run prisma:studio
 ```
 
 ## Verification
@@ -52,18 +52,18 @@ npm run prisma:studio
 Run the same checks that CI runs before finishing a feature:
 
 ```bash
-npm run verify
+pnpm run verify
 ```
 
 The verify flow runs unit tests, E2E tests, and the dependency security audit:
 
 ```bash
-npm test
-npm run test:e2e
-npm run security:audit
+pnpm test
+pnpm run test:e2e
+pnpm run security:audit
 ```
 
-The security audit fails on moderate and high vulnerabilities unless an advisory is explicitly allowlisted in `audit-ci.json`.
+The security audit fails closed on malformed output and on every unapproved moderate-or-higher vulnerability. The only temporary exception is path-scoped and expiry-bound in `scripts/pnpm-audit-validator.mjs`.
 
 ## Architecture
 

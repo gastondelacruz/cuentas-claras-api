@@ -12,11 +12,13 @@ services:
     plan: free
     branch: main
     autoDeployTrigger: "off"
-    buildCommand: npm ci && npm run prisma:generate && npm run build
-    preDeployCommand: npm run prisma:migrate:deploy
-    startCommand: npm run start:prod
+    buildCommand: npm install --global pnpm@10.26.1 && pnpm install --frozen-lockfile && pnpm run prisma:generate && pnpm run build
+    preDeployCommand: pnpm run prisma:migrate:deploy
+    startCommand: pnpm run start:prod
     healthCheckPath: /health
     envVars:
+      - key: NODE_VERSION
+        value: 26.0.0
       - key: NODE_ENV
         value: production
       - key: DATABASE_URL

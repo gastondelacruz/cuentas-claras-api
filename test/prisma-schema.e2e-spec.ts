@@ -19,13 +19,13 @@ describe("Prisma initial database structure (e2e)", () => {
 
 		process.env.DATABASE_URL = postgresContainer.getConnectionUri();
 
-		execSync("npx prisma migrate deploy", {
+		execSync("pnpm exec prisma migrate deploy", {
 			cwd: process.cwd(),
 			env: process.env,
 			stdio: "inherit",
 		});
 
-		execSync("npx prisma db seed", {
+		execSync("pnpm exec prisma db seed", {
 			cwd: process.cwd(),
 			env: process.env,
 			stdio: "inherit",

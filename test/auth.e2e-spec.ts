@@ -38,7 +38,7 @@ describe("Auth login endpoint (e2e)", () => {
 		process.env.JWT_ACCESS_TTL = "15m";
 		process.env.JWT_REFRESH_TTL = "30d";
 
-		execSync("npx prisma db push", {
+		execSync("pnpm exec prisma db push", {
 			cwd: process.cwd(),
 			env: process.env,
 			stdio: "inherit",
@@ -190,7 +190,7 @@ describe("Auth refresh token endpoint (e2e)", () => {
 		process.env.JWT_ACCESS_TTL = "15m";
 		process.env.JWT_REFRESH_TTL = "30d";
 
-		execSync("npx prisma db push", {
+		execSync("pnpm exec prisma db push", {
 			cwd: process.cwd(),
 			env: process.env,
 			stdio: "inherit",
@@ -329,7 +329,7 @@ describe("POST /api/v1/auth/logout (e2e)", () => {
 		process.env.JWT_ACCESS_TTL = "15m";
 		process.env.JWT_REFRESH_TTL = "30d";
 
-		execSync("npx prisma db push", {
+		execSync("pnpm exec prisma db push", {
 			cwd: process.cwd(),
 			env: process.env,
 			stdio: "inherit",
@@ -484,7 +484,7 @@ describe("Auth registration endpoint (e2e)", () => {
 		process.env.JWT_ACCESS_TTL = "15m";
 		process.env.JWT_REFRESH_TTL = "30d";
 
-		execSync("npx prisma db push", {
+		execSync("pnpm exec prisma db push", {
 			cwd: process.cwd(),
 			env: process.env,
 			stdio: "inherit",
@@ -661,7 +661,7 @@ describe("Email verification endpoints (e2e)", () => {
 		process.env.JWT_ACCESS_TTL = "15m";
 		process.env.JWT_REFRESH_TTL = "30d";
 
-		execSync("npx prisma db push", {
+		execSync("pnpm exec prisma db push", {
 			cwd: process.cwd(),
 			env: process.env,
 			stdio: "inherit",

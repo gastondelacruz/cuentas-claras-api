@@ -39,13 +39,13 @@ describe("Me summary endpoint (e2e)", () => {
 		process.env.JWT_ACCESS_TTL = "15m";
 		process.env.JWT_REFRESH_TTL = "30d";
 
-		execSync("npx prisma db push", {
+		execSync("pnpm exec prisma db push", {
 			cwd: process.cwd(),
 			env: process.env,
 			stdio: "inherit",
 		});
 
-		execSync("npx prisma db seed", {
+		execSync("pnpm exec prisma db seed", {
 			cwd: process.cwd(),
 			env: process.env,
 			stdio: "inherit",
@@ -151,7 +151,11 @@ describe("Me summary endpoint (e2e)", () => {
 		});
 
 		await createExcludedArchivedGroup();
-		await createDeletedExpense(firstGroupId, firstDevMemberId, firstAnaMember.id);
+		await createDeletedExpense(
+			firstGroupId,
+			firstDevMemberId,
+			firstAnaMember.id,
+		);
 
 		const response = await request(app.getHttpServer())
 			.get("/api/v1/me/summary")
