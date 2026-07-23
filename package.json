@@ -14,7 +14,10 @@
       "@swc/core",
       "argon2",
       "prisma"
-    ]
+    ],
+    "overrides": {
+      "find-my-way": "^9.7.0"
+    }
   },
   "scripts": {
     "start": "nest start",
