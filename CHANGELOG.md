@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.1](https://github.com/gastondelacruz/cuentas-claras-api/compare/v1.3.0...v1.3.1) (2026-07-23)
+
+
+### Bug Fixes
+
+* **auth:** optimize refresh token lookup ([2874859](https://github.com/gastondelacruz/cuentas-claras-api/commit/2874859e07b93fa8486a8f97607e2d011fa1365b))
+* **auth:** optimize refresh token lookup ([00f9d09](https://github.com/gastondelacruz/cuentas-claras-api/commit/00f9d09ea81ab4af4eb03324f75c399b83f5ef92))
+
 ## [1.3.0](https://github.com/gastondelacruz/cuentas-claras-api/compare/v1.2.0...v1.3.0) (2026-07-11)
 
 
