@@ -35,40 +35,44 @@ export class RefreshTokenUseCase {
 			this.rejectInvalidToken();
 		}
 
+		const digest = this.tokenDigest.digest(input.refreshToken);
+		const storedToken = await this.refreshTokenRepository.findByDigest(digest);
+
+		if (!storedToken || storedToken.userId !== userId!) {
+			this.rejectInvalidToken();
+		}
+
 		const user = await this.users.findById(userId!);
 
-		if (!user) {
+		if (!user || storedToken!.expiresAt <= new Date()) {
 			this.rejectInvalidToken();
 		}
 
-		const activeTokens = await this.refreshTokenRepository.findActiveByUserId(userId!);
-
-		if (activeTokens.length === 0) {
+		if (storedToken!.revokedAt !== null) {
+			// Reuse detected: revoke all active tokens for this user
+			await this.refreshTokenRepository.revokeAllByUserId(userId!);
 			this.rejectInvalidToken();
 		}
 
-		let matchedId: string | null = null;
-		for (const row of activeTokens) {
-			const isMatch = await this.passwordHasher.verify(input.refreshToken, row.tokenHash);
-			if (isMatch) {
-				matchedId = row.id;
-				break;
-			}
-		}
+		const isMatch = await this.passwordHasher.verify(
+			input.refreshToken,
+			storedToken!.tokenHash,
+		);
 
-		if (matchedId === null) {
+		if (!isMatch) {
 			// Reuse detected: revoke all active tokens for this user
 			await this.refreshTokenRepository.revokeAllByUserId(userId!);
 			this.rejectInvalidToken();
 		}
 
 		// Rotate: revoke the matched token and issue a new pair
-		await this.refreshTokenRepository.revoke(matchedId!);
+		await this.refreshTokenRepository.revoke(storedToken!.id);
 
 		const accessToken = await this.tokens.signAccessToken({
 			sub: user!.id,
 			email: user!.email,
-			emailVerified: user!.emailVerifiedAt !== null && user!.emailVerifiedAt !== undefined,
+			emailVerified:
+				user!.emailVerifiedAt !== null && user!.emailVerifiedAt !== undefined,
 		});
 		const newRefresh = await this.tokens.signRefreshToken({ sub: user!.id });
 
