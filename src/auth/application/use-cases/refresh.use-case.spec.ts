@@ -1,5 +1,4 @@
 import { Test, type TestingModule } from "@nestjs/testing";
-import { BusinessException } from "../../../shared/exceptions/business.exception";
 import { AuthUserRepository } from "../../domain/ports/auth-user.repository";
 import { PasswordHasher } from "../../domain/ports/password-hasher";
 import { RefreshTokenRepository } from "../../domain/ports/refresh-token.repository";
@@ -16,7 +15,7 @@ describe("RefreshTokenUseCase", () => {
 	};
 	let refreshTokens: {
 		save: ReturnType<typeof vi.fn>;
-		findActiveByUserId: ReturnType<typeof vi.fn>;
+		findByDigest: ReturnType<typeof vi.fn>;
 		revoke: ReturnType<typeof vi.fn>;
 		revokeAllByUserId: ReturnType<typeof vi.fn>;
 	};
@@ -42,7 +41,7 @@ describe("RefreshTokenUseCase", () => {
 		};
 		refreshTokens = {
 			save: vi.fn(),
-			findActiveByUserId: vi.fn(),
+			findByDigest: vi.fn(),
 			revoke: vi.fn(),
 			revokeAllByUserId: vi.fn(),
 		};
@@ -57,7 +56,7 @@ describe("RefreshTokenUseCase", () => {
 			verify: vi.fn(),
 		};
 		tokenDigestService = {
-			digest: vi.fn().mockReturnValue("new-token-digest"),
+			digest: vi.fn((token: string) => `${token}-digest`),
 		};
 
 		const module: TestingModule = await Test.createTestingModule({
@@ -90,7 +89,7 @@ describe("RefreshTokenUseCase", () => {
 
 		tokens.verifyRefreshToken.mockResolvedValue({ sub: userId });
 		users.findById.mockResolvedValue({ id: userId, name: "Jane", email });
-		refreshTokens.findActiveByUserId.mockResolvedValue([existingToken]);
+		refreshTokens.findByDigest.mockResolvedValue(existingToken);
 		passwordHasher.verify.mockResolvedValue(true);
 		tokens.signAccessToken.mockResolvedValue("new-access-token");
 		tokens.signRefreshToken.mockResolvedValue({
@@ -109,8 +108,14 @@ describe("RefreshTokenUseCase", () => {
 		});
 		expect(tokens.verifyRefreshToken).toHaveBeenCalledWith(rawToken);
 		expect(users.findById).toHaveBeenCalledWith(userId);
-		expect(refreshTokens.findActiveByUserId).toHaveBeenCalledWith(userId);
-		expect(passwordHasher.verify).toHaveBeenCalledWith(rawToken, "hashed-old-token");
+		expect(tokenDigestService.digest).toHaveBeenCalledWith(rawToken);
+		expect(refreshTokens.findByDigest).toHaveBeenCalledWith(
+			`${rawToken}-digest`,
+		);
+		expect(passwordHasher.verify).toHaveBeenCalledWith(
+			rawToken,
+			"hashed-old-token",
+		);
 		expect(refreshTokens.revoke).toHaveBeenCalledWith(existingToken.id);
 		expect(tokens.signAccessToken).toHaveBeenCalledWith({
 			sub: userId,
@@ -123,7 +128,7 @@ describe("RefreshTokenUseCase", () => {
 		expect(refreshTokens.save).toHaveBeenCalledWith({
 			userId,
 			tokenHash: "hashed-new-token",
-			tokenDigest: "new-token-digest",
+			tokenDigest: "new-refresh-token-digest",
 			expiresAt,
 		});
 		expect(refreshTokens.revokeAllByUserId).not.toHaveBeenCalled();
@@ -142,12 +147,18 @@ describe("RefreshTokenUseCase", () => {
 		};
 
 		tokens.verifyRefreshToken.mockResolvedValue({ sub: userId });
-		users.findById.mockResolvedValue({ id: userId, name: "User", email: "user@example.com" });
-		refreshTokens.findActiveByUserId.mockResolvedValue([existingToken]);
+		users.findById.mockResolvedValue({
+			id: userId,
+			name: "User",
+			email: "user@example.com",
+		});
+		refreshTokens.findByDigest.mockResolvedValue(existingToken);
 		passwordHasher.verify.mockResolvedValue(false);
 		refreshTokens.revokeAllByUserId.mockResolvedValue(undefined);
 
-		await expect(useCase.execute({ refreshToken: rawToken })).rejects.toMatchObject({
+		await expect(
+			useCase.execute({ refreshToken: rawToken }),
+		).rejects.toMatchObject({
 			code: "INVALID_REFRESH_TOKEN",
 			statusCode: 401,
 			type: "business",
@@ -158,12 +169,83 @@ describe("RefreshTokenUseCase", () => {
 		expect(tokens.signAccessToken).not.toHaveBeenCalled();
 	});
 
+	it("rejects a digest match belonging to another user", async () => {
+		const userId = "33333333-3333-3333-3333-333333333333";
+		const token = "foreign-refresh-token";
+
+		tokens.verifyRefreshToken.mockResolvedValue({ sub: userId });
+		users.findById.mockResolvedValue({
+			id: userId,
+			name: "User",
+			email: "user@example.com",
+		});
+		refreshTokens.findByDigest.mockResolvedValue({
+			id: "cccccccc-0000-0000-0000-000000000003",
+			userId: "different-user-id",
+			tokenHash: "hash",
+			tokenDigest: `${token}-digest`,
+			expiresAt: new Date(Date.now() + 60_000),
+			revokedAt: null,
+		});
+
+		await expect(
+			useCase.execute({ refreshToken: token }),
+		).rejects.toMatchObject({
+			code: "INVALID_REFRESH_TOKEN",
+			statusCode: 401,
+		});
+
+		expect(passwordHasher.verify).not.toHaveBeenCalled();
+		expect(refreshTokens.revokeAllByUserId).not.toHaveBeenCalled();
+	});
+
+	it.each([
+		["revoked", new Date(Date.now() + 60_000), new Date()],
+		["expired", new Date(Date.now() - 60_000), null],
+	])("rejects a %s digest match before Argon2 verification", async (_state, expiresAt, revokedAt) => {
+		const userId = "eeeeeeee-0000-0000-0000-000000000005";
+		const token = "invalid-state-refresh-token";
+
+		tokens.verifyRefreshToken.mockResolvedValue({ sub: userId });
+		users.findById.mockResolvedValue({
+			id: userId,
+			name: "User",
+			email: "user@example.com",
+		});
+		refreshTokens.findByDigest.mockResolvedValue({
+			id: "ffffffff-0000-0000-0000-000000000006",
+			userId,
+			tokenHash: "hash",
+			tokenDigest: `${token}-digest`,
+			expiresAt,
+			revokedAt,
+		});
+
+		await expect(
+			useCase.execute({ refreshToken: token }),
+		).rejects.toMatchObject({
+			code: "INVALID_REFRESH_TOKEN",
+			statusCode: 401,
+		});
+
+		expect(passwordHasher.verify).not.toHaveBeenCalled();
+		if (revokedAt !== null) {
+			expect(refreshTokens.revokeAllByUserId).toHaveBeenCalledWith(userId);
+		} else {
+			expect(refreshTokens.revokeAllByUserId).not.toHaveBeenCalled();
+		}
+	});
+
 	it("throws 401 when no active tokens exist for the user", async () => {
 		const userId = "33333333-3333-3333-3333-333333333333";
 
 		tokens.verifyRefreshToken.mockResolvedValue({ sub: userId });
-		users.findById.mockResolvedValue({ id: userId, name: "User", email: "user@example.com" });
-		refreshTokens.findActiveByUserId.mockResolvedValue([]);
+		users.findById.mockResolvedValue({
+			id: userId,
+			name: "User",
+			email: "user@example.com",
+		});
+		refreshTokens.findByDigest.mockResolvedValue(null);
 
 		await expect(
 			useCase.execute({ refreshToken: "some-token" }),
@@ -183,6 +265,14 @@ describe("RefreshTokenUseCase", () => {
 
 		tokens.verifyRefreshToken.mockResolvedValue({ sub: userId });
 		users.findById.mockResolvedValue(null);
+		refreshTokens.findByDigest.mockResolvedValue({
+			id: "dddddddd-0000-0000-0000-000000000004",
+			userId,
+			tokenHash: "hash",
+			tokenDigest: "orphan-token-digest",
+			expiresAt: new Date(Date.now() + 60_000),
+			revokedAt: null,
+		});
 
 		await expect(
 			useCase.execute({ refreshToken: "orphan-token" }),
@@ -192,7 +282,10 @@ describe("RefreshTokenUseCase", () => {
 			type: "business",
 		});
 
-		expect(refreshTokens.findActiveByUserId).not.toHaveBeenCalled();
+		expect(refreshTokens.findByDigest).toHaveBeenCalledWith(
+			"orphan-token-digest",
+		);
+		expect(passwordHasher.verify).not.toHaveBeenCalled();
 		expect(tokens.signAccessToken).not.toHaveBeenCalled();
 	});
 
@@ -207,7 +300,7 @@ describe("RefreshTokenUseCase", () => {
 			type: "business",
 		});
 
-		expect(refreshTokens.findActiveByUserId).not.toHaveBeenCalled();
+		expect(refreshTokens.findByDigest).not.toHaveBeenCalled();
 		expect(tokens.signAccessToken).not.toHaveBeenCalled();
 	});
 });
