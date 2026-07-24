@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.0](https://github.com/gastondelacruz/cuentas-claras-api/compare/v1.3.1...v1.4.0) (2026-07-24)
+
+
+### Features
+
+* **mail:** improve Spanish email templates ([8218cf3](https://github.com/gastondelacruz/cuentas-claras-api/commit/8218cf39d2227f710208dca018bc03564c190733))
+* **mail:** improve Spanish email templates ([d0657e8](https://github.com/gastondelacruz/cuentas-claras-api/commit/d0657e84faeee41b5eeec677842b665174d16366))
+
 ## [1.3.1](https://github.com/gastondelacruz/cuentas-claras-api/compare/v1.3.0...v1.3.1) (2026-07-23)
 
 
