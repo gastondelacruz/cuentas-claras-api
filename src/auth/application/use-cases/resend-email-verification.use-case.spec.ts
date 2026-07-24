@@ -1,7 +1,7 @@
-import { MailDeliveryPort } from "../../../shared/mail/domain/ports/mail-delivery.port";
-import { AuthUserRepository } from "../../domain/ports/auth-user.repository";
-import { EmailVerificationTokenRepository } from "../../domain/ports/email-verification-token.repository";
-import { TokenDigestService } from "../../domain/ports/token-digest.service";
+import type { MailDeliveryPort } from "../../../shared/mail/domain/ports/mail-delivery.port";
+import type { AuthUserRepository } from "../../domain/ports/auth-user.repository";
+import type { EmailVerificationTokenRepository } from "../../domain/ports/email-verification-token.repository";
+import type { TokenDigestService } from "../../domain/ports/token-digest.service";
 import { ResendEmailVerificationUseCase } from "./resend-email-verification.use-case";
 
 describe("ResendEmailVerificationUseCase", () => {
@@ -54,9 +54,14 @@ describe("ResendEmailVerificationUseCase", () => {
 			emailVerifiedAt: null,
 		});
 
-		await expect(useCase.execute({ userId: "user-1" })).resolves.toBeUndefined();
+		await expect(
+			useCase.execute({ userId: "user-1" }),
+		).resolves.toBeUndefined();
 
-		expect(verificationTokens.invalidateActiveForUser).toHaveBeenCalledWith("user-1", expect.any(Date));
+		expect(verificationTokens.invalidateActiveForUser).toHaveBeenCalledWith(
+			"user-1",
+			expect.any(Date),
+		);
 		expect(verificationTokens.save).toHaveBeenCalledWith({
 			userId: "user-1",
 			tokenDigest: "new-token-digest",
@@ -65,7 +70,9 @@ describe("ResendEmailVerificationUseCase", () => {
 		expect(mail.sendVerificationEmail).toHaveBeenCalledWith({
 			to: "jane@example.com",
 			name: "Jane",
-			verificationUrl: expect.stringContaining("http://localhost:3000/verify-email?token="),
+			verificationUrl: expect.stringContaining(
+				"http://localhost:3000/verify-email?token=",
+			),
 		});
 	});
 
@@ -87,10 +94,14 @@ describe("ResendEmailVerificationUseCase", () => {
 			emailVerifiedAt: null,
 		});
 
-		await expect(useCase.execute({ userId: "user-1" })).resolves.toBeUndefined();
+		await expect(
+			useCase.execute({ userId: "user-1" }),
+		).resolves.toBeUndefined();
 
 		const emailInput = mail.sendVerificationEmail.mock.calls[0][0];
-		expect(emailInput.verificationUrl).toMatch(/^cuentasclaras:\/\/verify-email\?token=.+$/);
+		expect(emailInput.verificationUrl).toMatch(
+			/^cuentasclaras:\/\/verify-email\?token=.+$/,
+		);
 		expect(emailInput.verificationUrl).not.toContain("cuentasclaras:///");
 	});
 
@@ -112,10 +123,14 @@ describe("ResendEmailVerificationUseCase", () => {
 			emailVerifiedAt: null,
 		});
 
-		await expect(useCase.execute({ userId: "user-1" })).resolves.toBeUndefined();
+		await expect(
+			useCase.execute({ userId: "user-1" }),
+		).resolves.toBeUndefined();
 
 		const emailInput = mail.sendVerificationEmail.mock.calls[0][0];
-		expect(emailInput.verificationUrl).toMatch(/^https:\/\/links\.cuentasclaras\.app\/verify-email\?token=.+$/);
+		expect(emailInput.verificationUrl).toMatch(
+			/^https:\/\/links\.cuentasclaras\.app\/verify-email\?token=.+$/,
+		);
 		expect(emailInput.verificationUrl).not.toContain("app//verify-email");
 	});
 
@@ -128,7 +143,9 @@ describe("ResendEmailVerificationUseCase", () => {
 		});
 		mail.sendVerificationEmail.mockRejectedValue(new Error("mail failed"));
 
-		await expect(useCase.execute({ userId: "user-1" })).resolves.toBeUndefined();
+		await expect(
+			useCase.execute({ userId: "user-1" }),
+		).resolves.toBeUndefined();
 
 		expect(verificationTokens.invalidateActiveForUser).toHaveBeenCalled();
 		expect(verificationTokens.save).toHaveBeenCalled();

@@ -1,10 +1,14 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { type ConfigType } from "@nestjs/config";
+import type { ConfigType } from "@nestjs/config";
 import mailConfig from "../../../config/mail.config";
 import { buildAppActionLink } from "../../../shared/application/app-action-link";
+// biome-ignore lint/style/useImportType: NestJS requires runtime DI metadata for this token.
 import { MailDeliveryPort } from "../../../shared/mail/domain/ports/mail-delivery.port";
+// biome-ignore lint/style/useImportType: NestJS requires runtime DI metadata for this token.
 import { AuthUserRepository } from "../../domain/ports/auth-user.repository";
+// biome-ignore lint/style/useImportType: NestJS requires runtime DI metadata for this token.
 import { EmailVerificationTokenRepository } from "../../domain/ports/email-verification-token.repository";
+// biome-ignore lint/style/useImportType: NestJS requires runtime DI metadata for this token.
 import { TokenDigestService } from "../../domain/ports/token-digest.service";
 import { createRandomToken } from "../services/random-token";
 import { ttlToDate } from "../services/ttl-to-date";
@@ -42,7 +46,11 @@ export class ResendEmailVerificationUseCase {
 		await this.mail.sendVerificationEmail({
 			to: user.email,
 			name: user.name,
-			verificationUrl: buildAppActionLink(this.mailSettings.appPublicUrl, "verify-email", { token }),
+			verificationUrl: buildAppActionLink(
+				this.mailSettings.appPublicUrl,
+				"verify-email",
+				{ token },
+			),
 		}).catch(() => undefined);
 	}
 }

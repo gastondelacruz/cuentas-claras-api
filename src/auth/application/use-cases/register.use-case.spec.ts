@@ -1,5 +1,4 @@
 import { Test, type TestingModule } from "@nestjs/testing";
-import { BusinessException } from "../../../shared/exceptions/business.exception";
 import mailConfig from "../../../config/mail.config";
 import { MailDeliveryPort } from "../../../shared/mail/domain/ports/mail-delivery.port";
 import { AuthUserRepository } from "../../domain/ports/auth-user.repository";
@@ -75,7 +74,10 @@ describe("RegisterUseCase", () => {
 				{ provide: TokenService, useValue: tokens },
 				{ provide: RefreshTokenRepository, useValue: refreshTokens },
 				{ provide: TokenDigestService, useValue: tokenDigestService },
-				{ provide: EmailVerificationTokenRepository, useValue: verificationTokens },
+				{
+					provide: EmailVerificationTokenRepository,
+					useValue: verificationTokens,
+				},
 				{ provide: MailDeliveryPort, useValue: mail },
 				{
 					provide: mailConfig.KEY,
@@ -161,13 +163,13 @@ describe("RegisterUseCase", () => {
 		expect(mail.sendVerificationEmail).toHaveBeenCalledWith({
 			to: createdUser.email,
 			name: createdUser.name,
-			verificationUrl: expect.stringContaining("http://localhost:3000/verify-email?token="),
+			verificationUrl: expect.stringContaining(
+				"http://localhost:3000/verify-email?token=",
+			),
 		});
 		expect(
 			users.createUserWithDefaultAccount.mock.calls[0][0].passwordHash,
-		).not.toBe(
-			"SecureP4ss!",
-		);
+		).not.toBe("SecureP4ss!");
 		expect(refreshTokens.save.mock.calls[0][0].tokenHash).not.toBe(
 			"refresh-token",
 		);
@@ -182,7 +184,10 @@ describe("RegisterUseCase", () => {
 				{ provide: TokenService, useValue: tokens },
 				{ provide: RefreshTokenRepository, useValue: refreshTokens },
 				{ provide: TokenDigestService, useValue: tokenDigestService },
-				{ provide: EmailVerificationTokenRepository, useValue: verificationTokens },
+				{
+					provide: EmailVerificationTokenRepository,
+					useValue: verificationTokens,
+				},
 				{ provide: MailDeliveryPort, useValue: mail },
 				{
 					provide: mailConfig.KEY,
