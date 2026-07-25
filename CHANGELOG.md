@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.5.1](https://github.com/gastondelacruz/cuentas-claras-api/compare/v1.5.0...v1.5.1) (2026-07-25)
+
+
+### Bug Fixes
+
+* **prisma:** use package-managed client generation ([9cf9625](https://github.com/gastondelacruz/cuentas-claras-api/commit/9cf9625e35bca69685cebc4fc04689ef04c0b796))
+* **prisma:** use package-managed client generation ([5a3aadf](https://github.com/gastondelacruz/cuentas-claras-api/commit/5a3aadf37b46d041497ae509e7e7597ad40f52b6))
+
 ## [1.5.0](https://github.com/gastondelacruz/cuentas-claras-api/compare/v1.4.0...v1.5.0) (2026-07-25)
 
 
