@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.5.0](https://github.com/gastondelacruz/cuentas-claras-api/compare/v1.4.0...v1.5.0) (2026-07-25)
+
+
+### Features
+
+* **me:** add personal category management ([32a7160](https://github.com/gastondelacruz/cuentas-claras-api/commit/32a7160fe405c5e145ecb8f150c326c4e1dbe8e6))
+* **me:** add personal category management ([89cd23a](https://github.com/gastondelacruz/cuentas-claras-api/commit/89cd23a44ab71ac5bfa98f7174b7bf6ca59d476c))
+
+
+### Bug Fixes
+
+* **deps:** remediate brace-expansion security advisory ([fad607f](https://github.com/gastondelacruz/cuentas-claras-api/commit/fad607f1e3d2b53cfc016d9324d07b29bce544d5))
+
 ## [1.4.0](https://github.com/gastondelacruz/cuentas-claras-api/compare/v1.3.1...v1.4.0) (2026-07-24)
 
 
