@@ -2,12 +2,15 @@ import { Injectable } from "@nestjs/common";
 // biome-ignore lint/style/useImportType: Nest uses this abstract class as a runtime DI token.
 import { AccountsRepository } from "../../domain/ports/accounts.repository";
 // biome-ignore lint/style/useImportType: Nest uses this abstract class as a runtime DI token.
+import { PersonalCategoriesRepository } from "../../domain/ports/personal-categories.repository";
+// biome-ignore lint/style/useImportType: Nest uses this abstract class as a runtime DI token.
 import {
 	PersonalTransactionsRepository,
 	type PersonalTransaction,
 } from "../../domain/ports/personal-transactions.repository";
 import { BusinessException } from "../../../shared/exceptions/business.exception";
-import { isValidCategoryForType } from "../../domain/value-objects/transaction-category.vo";
+import { getPersonalCategory } from "../../domain/value-objects/personal-category.vo";
+import { isCategoryAllowed } from "./personal-categories.use-cases";
 import {
 	DEFAULT_TRANSACTION_EXPENSE_KIND,
 	type TransactionExpenseKind,
@@ -31,12 +34,23 @@ export class CreatePersonalTransactionUseCase {
 	constructor(
 		private readonly accountsRepository: AccountsRepository,
 		private readonly personalTransactionsRepository: PersonalTransactionsRepository,
+		private readonly personalCategoriesRepository: PersonalCategoriesRepository,
 	) {}
 
 	async execute(
 		input: CreatePersonalTransactionInput,
 	): Promise<PersonalTransaction> {
-		if (!isValidCategoryForType(input.type, input.category)) {
+		if (
+			!(
+				getPersonalCategory(input.type, input.category) ||
+				(await isCategoryAllowed(
+					this.personalCategoriesRepository,
+					input.userId,
+					input.type,
+					input.category,
+				))
+			)
+		) {
 			throw new BusinessException(
 				"PERSONAL_TX_CATEGORY_NOT_ALLOWED",
 				`Category "${input.category}" is not allowed for ${input.type} transactions.`,

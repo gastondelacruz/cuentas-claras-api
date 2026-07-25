@@ -1,5 +1,6 @@
 generator client {
   provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
 }
 
 datasource db {
@@ -55,6 +56,7 @@ model User {
   emailVerificationTokens EmailVerificationToken[]
   accounts             Account[]
   personalTransactions PersonalTransaction[]
+  personalCategories   PersonalCategory[]
 
   @@map("users")
 }
@@ -225,6 +227,24 @@ model Account {
 
   @@index([userId])
   @@map("accounts")
+}
+
+model PersonalCategory {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  name           String
+  normalizedName String   @map("normalized_name")
+  type           String
+  icon           String
+  color          String
+  isDefault      Boolean  @default(false) @map("is_default")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([userId, type, normalizedName])
+  @@index([userId])
+  @@map("personal_categories")
 }
 
 model PersonalTransaction {

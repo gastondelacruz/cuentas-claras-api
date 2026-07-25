@@ -2,13 +2,16 @@ import { Injectable } from "@nestjs/common";
 // biome-ignore lint/style/useImportType: Nest uses this abstract class as a runtime DI token.
 import { AccountsRepository } from "../../domain/ports/accounts.repository";
 // biome-ignore lint/style/useImportType: Nest uses this abstract class as a runtime DI token.
+import { PersonalCategoriesRepository } from "../../domain/ports/personal-categories.repository";
+// biome-ignore lint/style/useImportType: Nest uses this abstract class as a runtime DI token.
 import {
 	PersonalTransactionsRepository,
 	type PersonalTransaction,
 	type UpdatePersonalTransactionData,
 } from "../../domain/ports/personal-transactions.repository";
 import { BusinessException } from "../../../shared/exceptions/business.exception";
-import { isValidCategoryForType } from "../../domain/value-objects/transaction-category.vo";
+import { getPersonalCategory } from "../../domain/value-objects/personal-category.vo";
+import { isCategoryAllowed } from "./personal-categories.use-cases";
 import {
 	DEFAULT_TRANSACTION_EXPENSE_KIND,
 	type TransactionExpenseKind,
@@ -33,6 +36,7 @@ export class UpdatePersonalTransactionUseCase {
 	constructor(
 		private readonly accountsRepository: AccountsRepository,
 		private readonly personalTransactionsRepository: PersonalTransactionsRepository,
+		private readonly personalCategoriesRepository: PersonalCategoriesRepository,
 	) {}
 
 	async execute(
@@ -55,7 +59,17 @@ export class UpdatePersonalTransactionUseCase {
 		const nextType = input.type ?? (existing.type as TransactionType);
 		const nextCategory = input.category ?? existing.category;
 
-		if (!isValidCategoryForType(nextType, nextCategory)) {
+		if (
+			!(
+				getPersonalCategory(nextType, nextCategory) ||
+				(await isCategoryAllowed(
+					this.personalCategoriesRepository,
+					input.userId,
+					nextType,
+					nextCategory,
+				))
+			)
+		) {
 			throw new BusinessException(
 				"PERSONAL_TX_CATEGORY_NOT_ALLOWED",
 				`Category "${nextCategory}" is not allowed for ${nextType} transactions.`,

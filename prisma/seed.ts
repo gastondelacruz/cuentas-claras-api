@@ -1,5 +1,9 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
+import {
+	DEFAULT_PERSONAL_CATEGORIES,
+	normalizeCategoryName,
+} from "../src/me/domain/value-objects/personal-category.vo";
 
 const DEV_USER_ID = "00000000-0000-0000-0000-000000000001";
 const DEV_USER_EMAIL = "dev@cuentasclaras.local";
@@ -47,6 +51,50 @@ async function main() {
 				isDefault: true,
 			},
 		});
+
+		const legacyNames = new Map([["expense:departamento", ["departament"]]]);
+		for (const category of DEFAULT_PERSONAL_CATEGORIES) {
+			const normalizedName = normalizeCategoryName(category.name);
+			const existing = await prisma.personalCategory.findFirst({
+				where: {
+					userId: DEV_USER_ID,
+					type: category.type,
+					OR: [
+						{ normalizedName },
+						{
+							normalizedName: {
+								in: legacyNames.get(`${category.type}:${normalizedName}`) ?? [],
+							},
+						},
+					],
+				},
+			});
+			const defaultData = {
+				name: category.name,
+				normalizedName,
+				type: category.type,
+				icon: category.icon,
+				color: category.color,
+				isDefault: true,
+			};
+
+			if (existing?.isDefault) {
+				await prisma.personalCategory.update({
+					where: { id: existing.id },
+					data: defaultData,
+				});
+				continue;
+			}
+			if (existing) {
+				continue;
+			}
+			await prisma.personalCategory.create({
+				data: {
+					userId: DEV_USER_ID,
+					...defaultData,
+				},
+			});
+		}
 	} finally {
 		await prisma.$disconnect();
 	}

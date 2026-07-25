@@ -1,34 +1,19 @@
 import type { TransactionType } from "./transaction-type.vo";
+import { DEFAULT_PERSONAL_CATEGORIES } from "./personal-category.vo";
 
-export const EXPENSE_CATEGORIES = [
-	"Salud",
-	"Ocio",
-	"Departament",
-	"Café",
-	"Educación",
-	"Regalos",
-	"Transporte",
-	"Otros",
-	"Servicio",
-	"Tarjetas",
-	"Auto",
-	"Ropa",
-	"Alimentación",
-] as const;
-
-export const INCOME_CATEGORIES = [
-	"Salario",
-	"Regalos",
-	"Intereses",
-	"Otros",
-] as const;
+export const EXPENSE_CATEGORIES = DEFAULT_PERSONAL_CATEGORIES.filter(
+	(category) => category.type === "expense",
+).map((category) => category.name) as readonly string[];
+export const INCOME_CATEGORIES = DEFAULT_PERSONAL_CATEGORIES.filter(
+	(category) => category.type === "income",
+).map((category) => category.name) as readonly string[];
 
 export const TRANSACTION_CATEGORY_SWAGGER_VALUES = Array.from(
 	new Set([...EXPENSE_CATEGORIES, ...INCOME_CATEGORIES]),
 );
 
-export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number];
-export type IncomeCategory = (typeof INCOME_CATEGORIES)[number];
+export type ExpenseCategory = string;
+export type IncomeCategory = string;
 
 export function categoriesForType(type: TransactionType): readonly string[] {
 	return type === "income" ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;

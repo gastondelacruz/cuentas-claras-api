@@ -43,6 +43,8 @@ import { ListMyAccountsUseCase } from "../../application/use-cases/list-my-accou
 import { ListPersonalTransactionsUseCase } from "../../application/use-cases/list-personal-transactions.use-case";
 // biome-ignore lint/style/useImportType: Nest uses this class as a runtime DI token.
 import { UpdatePersonalTransactionUseCase } from "../../application/use-cases/update-personal-transaction.use-case";
+// biome-ignore lint/style/useImportType: Nest uses these classes as runtime DI tokens.
+import { CreatePersonalCategoryUseCase, ListPersonalCategoriesUseCase, UpdatePersonalCategoryUseCase } from "../../application/use-cases/personal-categories.use-cases";
 import type { TransactionExpenseKind } from "../../domain/value-objects/transaction-expense-kind.vo";
 import type { TransactionPeriod } from "../../domain/value-objects/transaction-period.vo";
 import type { TransactionType } from "../../domain/value-objects/transaction-type.vo";
@@ -59,7 +61,14 @@ import { MeSummaryResponseDto } from "./dto/me-summary-response.dto";
 // biome-ignore lint/style/useImportType: Swagger/Nest reads this DTO at runtime for query metadata.
 import { PersonalTransactionsSummaryQueryDto } from "./dto/personal-transactions-summary-query.dto";
 import { PersonalTransactionsSummaryResponseDto } from "./dto/personal-transactions-summary-response.dto";
+// biome-ignore lint/style/useImportType: Swagger/Nest reads this DTO at runtime for body metadata.
 import { UpdatePersonalTransactionRequestDto } from "./dto/update-personal-transaction-request.dto";
+// biome-ignore lint/style/useImportType: Swagger/Nest reads these DTOs at runtime for body metadata.
+import {
+CreatePersonalCategoryRequestDto,
+PersonalCategoryResponseDto,
+UpdatePersonalCategoryRequestDto,
+} from "./dto/personal-category.dto";
 import { AccountsMapper } from "./mappers/accounts.mapper";
 import { MeMapper } from "./mappers/me.mapper";
 import { PersonalTransactionsMapper } from "./mappers/personal-transactions.mapper";
@@ -77,7 +86,30 @@ export class MeController {
 		private readonly createPersonalTransactionUseCase: CreatePersonalTransactionUseCase,
 		private readonly updatePersonalTransactionUseCase: UpdatePersonalTransactionUseCase,
 		private readonly deletePersonalTransactionUseCase: DeletePersonalTransactionUseCase,
+		private readonly listPersonalCategoriesUseCase: ListPersonalCategoriesUseCase,
+		private readonly createPersonalCategoryUseCase: CreatePersonalCategoryUseCase,
+		private readonly updatePersonalCategoryUseCase: UpdatePersonalCategoryUseCase,
 	) {}
+
+	@Get("categories")
+	@ApiOkDataResponse({ type: PersonalCategoryResponseDto, isArray: true })
+	async listCategories(@CurrentUser("userId") userId: string): Promise<PersonalCategoryResponseDto[]> {
+		return this.listPersonalCategoriesUseCase.execute(userId);
+	}
+
+	@Post("categories")
+	@ApiBody({ type: CreatePersonalCategoryRequestDto })
+	@ApiCreatedDataResponse({ type: PersonalCategoryResponseDto })
+	async createCategory(@CurrentUser("userId") userId: string, @Body() dto: CreatePersonalCategoryRequestDto): Promise<PersonalCategoryResponseDto> {
+		return this.createPersonalCategoryUseCase.execute({ userId, ...dto });
+	}
+
+	@Patch("categories/:categoryId")
+	@ApiBody({ type: UpdatePersonalCategoryRequestDto })
+	@ApiOkDataResponse({ type: PersonalCategoryResponseDto })
+	async updateCategory(@CurrentUser("userId") userId: string, @Param("categoryId", ParseUUIDPipe) categoryId: string, @Body() dto: UpdatePersonalCategoryRequestDto): Promise<PersonalCategoryResponseDto> {
+		return this.updatePersonalCategoryUseCase.execute({ userId, categoryId, ...dto });
+	}
 
 	@Get("summary")
 	@ApiOkDataResponse({ type: MeSummaryResponseDto })

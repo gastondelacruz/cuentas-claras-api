@@ -99,6 +99,7 @@ describe("Personal transactions endpoint (e2e)", () => {
 
 	beforeEach(async () => {
 		await prisma.personalTransaction.deleteMany();
+		await prisma.personalCategory.deleteMany();
 		await prisma.account.deleteMany({
 			where: {
 				userId: {
@@ -1047,6 +1048,73 @@ describe("Personal transactions endpoint (e2e)", () => {
 			amount: 999,
 			accountName: otherAccount.name,
 		});
+	});
+
+	it("manages custom categories and validates them by user and type", async () => {
+		const created = await request(app.getHttpServer())
+			.post("/api/v1/me/categories")
+			.send({
+				name: "Custom pets",
+				type: "expense",
+				icon: "Gift",
+				color: "#A855F7",
+			})
+			.expect(201);
+		expect(created.body.data).toMatchObject({
+			name: "Custom pets",
+			type: "expense",
+			icon: "Gift",
+			color: "#A855F7",
+			isDefault: false,
+			userId: DEV_USER_ID,
+		});
+		const listed = await request(app.getHttpServer())
+			.get("/api/v1/me/categories")
+			.expect(200);
+		expect(listed.body.data).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					id: expect.stringContaining("default:expense"),
+					name: "Salud",
+					type: "expense",
+					icon: "Heart",
+					color: "#EF4444",
+					isDefault: true,
+				}),
+				expect.objectContaining({
+					id: created.body.data.id,
+					name: "Custom pets",
+					type: "expense",
+					icon: "Gift",
+					color: "#A855F7",
+					isDefault: false,
+				}),
+			]),
+		);
+		await request(app.getHttpServer())
+			.patch(`/api/v1/me/categories/${created.body.data.id}`)
+			.send({ name: "Animales" })
+			.expect(200);
+		await request(app.getHttpServer())
+			.post("/api/v1/me/personal-transactions")
+			.send({
+				type: "expense",
+				amount: 100,
+				currency: "ARS",
+				category: "Animales",
+				occurredAt: "2026-06-29T12:00:00.000Z",
+			})
+			.expect(201);
+		await request(app.getHttpServer())
+			.post("/api/v1/me/personal-transactions")
+			.send({
+				type: "income",
+				amount: 100,
+				currency: "ARS",
+				category: "Animales",
+				occurredAt: "2026-06-29T12:00:00.000Z",
+			})
+			.expect(400);
 	});
 
 	async function createTransaction(
