@@ -19,23 +19,31 @@ describe("transaction-category", () => {
 		expect(EXPENSE_CATEGORIES).toEqual([
 			"Salud",
 			"Ocio",
-			"Departament",
+			"Departamento",
 			"Café",
 			"Educación",
 			"Regalos",
+			"Alimentación",
 			"Transporte",
 			"Otros",
 			"Servicio",
 			"Tarjetas",
 			"Auto",
 			"Ropa",
-			"Alimentación",
+			"Mascotas",
+			"Viajes",
+			"Deporte",
+			"Hogar",
 		]);
 		expect(INCOME_CATEGORIES).toEqual([
 			"Salario",
 			"Regalos",
 			"Intereses",
-			"Otros",
+			"Freelance",
+			"Bonos",
+			"Ventas",
+			"Inversiones",
+			"Propiedades",
 		]);
 	});
 });

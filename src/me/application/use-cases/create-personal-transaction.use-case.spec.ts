@@ -8,6 +8,7 @@ import {
 	type PersonalTransaction,
 } from "../../domain/ports/personal-transactions.repository";
 import { BusinessException } from "../../../shared/exceptions/business.exception";
+import { PersonalCategoriesRepository } from "../../domain/ports/personal-categories.repository";
 import { CreatePersonalTransactionUseCase } from "./create-personal-transaction.use-case";
 
 describe("CreatePersonalTransactionUseCase", () => {
@@ -51,6 +52,10 @@ describe("CreatePersonalTransactionUseCase", () => {
 				{
 					provide: PersonalTransactionsRepository,
 					useValue: transactionsRepository,
+				},
+				{
+					provide: PersonalCategoriesRepository,
+					useValue: { findByUserTypeAndNormalizedName: vi.fn() },
 				},
 			],
 		}).compile();

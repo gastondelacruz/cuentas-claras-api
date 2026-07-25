@@ -38,6 +38,11 @@ import { GetPersonalTransactionsSummaryUseCase } from "../me/application/use-cas
 import { ListMyAccountsUseCase } from "../me/application/use-cases/list-my-accounts.use-case";
 import { ListPersonalTransactionsUseCase } from "../me/application/use-cases/list-personal-transactions.use-case";
 import { UpdatePersonalTransactionUseCase } from "../me/application/use-cases/update-personal-transaction.use-case";
+import {
+	CreatePersonalCategoryUseCase,
+	ListPersonalCategoriesUseCase,
+	UpdatePersonalCategoryUseCase,
+} from "../me/application/use-cases/personal-categories.use-cases";
 import { MeController } from "../me/infrastructure/http/me.controller";
 
 type OpenApiSchema = {
@@ -47,6 +52,9 @@ type OpenApiSchema = {
 	properties?: Record<string, OpenApiSchema>;
 	required?: string[];
 	type?: string;
+	description?: string;
+	example?: unknown;
+	pattern?: string;
 };
 
 type OpenApiParameter = {
@@ -105,6 +113,9 @@ describe("global Swagger response contract", () => {
 				{ provide: CreatePersonalTransactionUseCase, useValue: executeMock },
 				{ provide: UpdatePersonalTransactionUseCase, useValue: executeMock },
 				{ provide: DeletePersonalTransactionUseCase, useValue: executeMock },
+				{ provide: ListPersonalCategoriesUseCase, useValue: executeMock },
+				{ provide: CreatePersonalCategoryUseCase, useValue: executeMock },
+				{ provide: UpdatePersonalCategoryUseCase, useValue: executeMock },
 			],
 		}).compile();
 
@@ -332,9 +343,7 @@ describe("global Swagger response contract", () => {
 				}),
 			]),
 		);
-		expect(
-			operation?.requestBody?.content?.["application/json"]?.schema,
-		).toEqual({
+		expect(requestBodySchema(operation)).toEqual({
 			$ref: "#/components/schemas/UpdatePersonalTransactionRequestDto",
 		});
 		expect(operation?.responses).toMatchObject({
@@ -361,6 +370,38 @@ describe("global Swagger response contract", () => {
 		expect(
 			(properties.type as OpenApiSchema & { enum?: string[] }).enum,
 		).toEqual(["expense", "income"]);
+	});
+
+	it("documents personal category request bodies", () => {
+		const createOperation = document.paths["/api/v1/me/categories"]?.post;
+		const updateOperation =
+			document.paths["/api/v1/me/categories/{categoryId}"]?.patch;
+
+		expect(requestBodySchema(createOperation)).toEqual({
+			$ref: "#/components/schemas/CreatePersonalCategoryRequestDto",
+		});
+		expect(requestBodySchema(updateOperation)).toEqual({
+			$ref: "#/components/schemas/UpdatePersonalCategoryRequestDto",
+		});
+		const createSchema = document.components?.schemas
+			?.CreatePersonalCategoryRequestDto as OpenApiSchema | undefined;
+		const responseSchema = document.components?.schemas
+			?.PersonalCategoryResponseDto as OpenApiSchema | undefined;
+		expect(createSchema?.required).toEqual(["name", "type", "icon", "color"]);
+		expect(createSchema?.properties?.color).toMatchObject({
+			pattern: "^#[0-9A-Fa-f]{6}$",
+		});
+		expect(responseSchema?.required).toEqual([
+			"id",
+			"name",
+			"type",
+			"icon",
+			"color",
+			"isDefault",
+			"userId",
+			"createdAt",
+			"updatedAt",
+		]);
 	});
 
 	it("documents personal-transactions query parameters with enums and descriptions", () => {
@@ -507,14 +548,23 @@ describe("global Swagger response contract", () => {
 		});
 	}
 
+	function requestBodySchema(
+		operation: { requestBody?: unknown } | undefined,
+	): OpenApiSchema | undefined {
+		const requestBody = operation?.requestBody as
+			| { content?: Record<string, { schema?: OpenApiSchema }> }
+			| undefined;
+		return requestBody?.content?.["application/json"]?.schema;
+	}
+
 	function responseSchema(
 		path: string,
 		method: "get" | "post" | "patch" | "delete",
 		status: string,
 	): OpenApiSchema | undefined {
-		const schema = document.paths[path]?.[method]?.responses?.[status]
-			?.content?.["application/json"]?.schema as OpenApiSchema | undefined;
-
-		return schema;
+		const response = document.paths[path]?.[method]?.responses?.[status] as
+			| { content?: Record<string, { schema?: OpenApiSchema }> }
+			| undefined;
+		return response?.content?.["application/json"]?.schema;
 	}
 });
