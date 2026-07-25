@@ -7,6 +7,10 @@ settings:
 overrides:
   find-my-way: ^9.7.0
   valibot: ^1.4.2
+  minimatch@3.1.5>brace-expansion: 5.0.8
+  minimatch@9.0.9>brace-expansion: 5.0.8
+  minimatch@5.1.9>brace-expansion: 5.0.8
+  minimatch@10.2.5>brace-expansion: 5.0.8
 
 importers:
   .:
@@ -2349,6 +2353,13 @@ packages:
     resolution:
       {
         integrity: sha512-7oFy703dxfY3/NLxC1fh2SUCQ0H9rmAY+5EpDVfXjUTTs+HEwR2nYaqLv+GWcTsumwxPfiz6CzCNkwXwBUwqCA==,
+      }
+    engines: { node: 18 || 20 || >=22 }
+
+  brace-expansion@5.0.8:
+    resolution:
+      {
+        integrity: sha512-JZyDyq3D4AUifKTPOB7DELf6XsB3WdPuNxCtob1vFXPsSXhdAiHBWJ/tJ8HAc9aH84BK+5JFZLNkJKx3G9kzQg==,
       }
     engines: { node: 18 || 20 || >=22 }
 
@@ -7282,6 +7293,10 @@ snapshots:
     dependencies:
       balanced-match: 4.0.4
 
+  brace-expansion@5.0.8:
+    dependencies:
+      balanced-match: 4.0.4
+
   browserslist@4.28.6:
     dependencies:
       baseline-browser-mapping: 2.10.43
@@ -8256,19 +8271,19 @@ snapshots:
 
   minimatch@10.2.5:
     dependencies:
-      brace-expansion: 5.0.7
+      brace-expansion: 5.0.8
 
   minimatch@3.1.5:
     dependencies:
-      brace-expansion: 1.1.16
+      brace-expansion: 5.0.8
 
   minimatch@5.1.9:
     dependencies:
-      brace-expansion: 2.1.2
+      brace-expansion: 5.0.8
 
   minimatch@9.0.9:
     dependencies:
-      brace-expansion: 2.1.2
+      brace-expansion: 5.0.8
 
   minimist@1.2.8: {}
 
