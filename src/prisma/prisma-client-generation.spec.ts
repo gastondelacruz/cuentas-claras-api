@@ -8,10 +8,8 @@ const schema = readFileSync(
 );
 
 describe("Prisma client generation", () => {
-	it("writes the generated client to the root pnpm runtime location", () => {
-		expect(schema).toMatch(
-			/output\s*=\s*"\.\.\/node_modules\/\.prisma\/client"/u,
-		);
+	it("uses Prisma's package-managed client generation path", () => {
+		expect(schema).not.toMatch(/output\s*=/u);
 	});
 
 	it("defines PersonalCategory in the Prisma schema", () => {
