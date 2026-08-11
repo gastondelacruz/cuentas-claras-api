@@ -63,4 +63,4 @@ conventions:
 persistence:
   mode: hybrid
   engram_topic_key: "sdd-init-go/cuentas-claras-api"
-  skill_registry: ".atl/skill-registry.md"
+  skill_registry: ".agents/skills"

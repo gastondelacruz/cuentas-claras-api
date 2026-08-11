@@ -11,6 +11,32 @@ Operational guide for AI agents and humans working in this repo. Read this **bef
 5. Write or modify code following the [Conventions](#conventions).
 6. Finish feature work with `pnpm run verify` when practical. If the full verify flow is not practical, run and report the closest subset (`pnpm test`, `pnpm run test:e2e`, `pnpm run security:audit`).
 
+## Development lifecycle
+
+All non-trivial feature work follows this sequence:
+
+```text
+DEFINE → PLAN → BUILD → VERIFY → REVIEW → SHIP
+```
+
+| Phase | Repository artifact or gate |
+| --- | --- |
+| DEFINE | `openspec/changes/<change>/proposal.md` with objective and success criteria |
+| PLAN | `openspec/changes/<change>/design.md` and `tasks.md` |
+| BUILD | One task or vertical slice at a time, using TDD where behavior changes |
+| VERIFY | Focused tests, `pnpm run build`, full tests, E2E when applicable, and security audit |
+| REVIEW | Pull request review covering correctness, readability, architecture, security, and performance |
+| SHIP | Approved merge, release automation, deployment verification, and rollback plan |
+
+### Workflow gates
+
+- Clarify requirements and obtain approval for the proposal before implementation.
+- Plan dependency order, acceptance criteria, verification, and checkpoints before coding.
+- Keep each increment compilable, tested, and independently revertible.
+- Stop on failing tests, ambiguous requirements, or high-risk/irreversible work.
+- Do not merge without review or ship without a rollback plan.
+- Keep OpenSpec artifacts updated when scope, decisions, or acceptance criteria change.
+
 ## Interaction rules
 
 | Rule | Detail |
