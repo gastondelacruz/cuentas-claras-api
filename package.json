@@ -41,6 +41,7 @@
     "test:cov": "vitest run --coverage",
     "test:e2e": "vitest run --config ./vitest.config.e2e.ts",
     "security:audit": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON ./scripts/pnpm-audit-validator.ts",
+    "workflow:validate": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON ./scripts/validate-openspec.ts",
     "verify": "pnpm test && pnpm run test:e2e && pnpm run security:audit"
   },
   "dependencies": {
