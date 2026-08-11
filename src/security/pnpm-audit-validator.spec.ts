@@ -107,8 +107,14 @@ describe("pnpm audit validator", () => {
 
 	it("still evaluates vulnerability JSON when pnpm audit exits with findings status 1", () => {
 		expect(
-			validateAuditExecution({ status: 1, signal: null, stdout: report() })
-				.allowed,
+			validateAuditExecution(
+				{
+					status: 1,
+					signal: null,
+					stdout: report(),
+				},
+				new Date("2026-08-02T12:00:00Z"),
+			).allowed,
 		).toBe(true);
 	});
 });

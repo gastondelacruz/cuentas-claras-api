@@ -11,6 +11,32 @@ Operational guide for AI agents and humans working in this repo. Read this **bef
 5. Write or modify code following the [Conventions](#conventions).
 6. Finish feature work with `pnpm run verify` when practical. If the full verify flow is not practical, run and report the closest subset (`pnpm test`, `pnpm run test:e2e`, `pnpm run security:audit`).
 
+## Development lifecycle
+
+All non-trivial feature work follows this sequence:
+
+```text
+DEFINE → PLAN → BUILD → VERIFY → REVIEW → SHIP
+```
+
+| Phase | Repository artifact or gate |
+| --- | --- |
+| DEFINE | `openspec/changes/<change>/proposal.md` with objective and success criteria |
+| PLAN | `openspec/changes/<change>/design.md` and `tasks.md` |
+| BUILD | One task or vertical slice at a time, using TDD where behavior changes |
+| VERIFY | Focused tests, `pnpm run build`, full tests, E2E when applicable, and security audit |
+| REVIEW | Pull request review covering correctness, readability, architecture, security, and performance |
+| SHIP | Approved merge, release automation, deployment verification, and rollback plan |
+
+### Workflow gates
+
+- Clarify requirements and obtain approval for the proposal before implementation.
+- Plan dependency order, acceptance criteria, verification, and checkpoints before coding.
+- Keep each increment compilable, tested, and independently revertible.
+- Stop on failing tests, ambiguous requirements, or high-risk/irreversible work.
+- Do not merge without review or ship without a rollback plan.
+- Keep OpenSpec artifacts updated when scope, decisions, or acceptance criteria change.
+
 ## Interaction rules
 
 | Rule | Detail |
@@ -111,37 +137,41 @@ These live **inside the repo**, versioned with the codebase and pinned to the st
 
 > `nodejs-backend-patterns` references Express/Fastify patterns, but the real framework here is **NestJS**. If guidance conflicts, `nestjs-best-practices` wins.
 
-### Workflow skills (`.atl/skill-registry.md`)
+### Workflow skills (`.agents/skills/`)
 
-These live **outside the repo** (installed in `~/.config/opencode/skills` and equivalent paths). **Do not copy them into the project.** The canonical index is `.atl/skill-registry.md`:
+Workflow skills are versioned in the repository alongside the project-specific technical skills. The installed source and integrity hashes are tracked in `skills-lock.json`:
 
-| Task context | Skill to read |
-| ---------------------- | -------------- |
-| Create/open/prepare a Pull Request | `branch-pr` |
-| Large PR (>400 lines) or slice-based work | `chained-pr` |
-| Plan commits as reviewable work units | `work-unit-commits` |
-| Write docs, READMEs, guides, onboarding | `cognitive-doc-design` |
-| PR/issue/review comments | `comment-writer` |
-| Create issues / bug reports | `issue-creation` |
-| Adversarial / dual review | `judgment-day` |
-| Create a new skill | `skill-creator` |
-| Audit/improve skills | `skill-improver` |
+| Task context | Skill path |
+| --- | --- |
+| Discover and route agent skills | `.agents/skills/using-agent-skills/SKILL.md` |
+| Define requirements before coding | `.agents/skills/spec-driven-development/SKILL.md` |
+| Break work into verifiable tasks | `.agents/skills/planning-and-task-breakdown/SKILL.md` |
+| Implement incremental slices | `.agents/skills/incremental-implementation/SKILL.md` |
+| Apply red-green-refactor TDD | `.agents/skills/test-driven-development/SKILL.md` |
+| Review changes before merge | `.agents/skills/code-review-and-quality/SKILL.md` |
+| Manage commits and branches | `.agents/skills/git-workflow-and-versioning/SKILL.md` |
+| Modify CI/CD automation | `.agents/skills/ci-cd-and-automation/SKILL.md` |
+| Debug failed checks systematically | `.agents/skills/debugging-and-error-recovery/SKILL.md` |
+| Challenge high-risk decisions | `.agents/skills/doubt-driven-development/SKILL.md` |
+| Document decisions and ADRs | `.agents/skills/documentation-and-adrs/SKILL.md` |
+| Prepare production releases | `.agents/skills/shipping-and-launch/SKILL.md` |
 
 Protocol:
 
-1. Read the `Trigger / description` column in `.atl/skill-registry.md`.
-2. Open the exact `SKILL.md` at the listed path **before** starting work.
-3. If no workflow skill applies, proceed without loading one.
+1. Identify the task context and select only the relevant skill(s).
+2. Read the exact `SKILL.md` file(s) **before** reading, writing, reviewing, testing, or creating artifacts.
+3. Apply project-specific rules from this file when they conflict with generic workflow guidance.
+4. If no workflow skill applies, proceed without loading one.
 
-If you add, remove, or change workflow skills, regenerate the index:
+To add or update a workflow skill, use the standard Skills CLI and commit the resulting files and `skills-lock.json`:
 
 ```bash
-gentle-ai skill-registry refresh --force
+npx skills add <owner>/<repository> --skill <skill-name> --copy
 ```
 
 ## Checklist before handing off
 
-- [ ] Read the relevant skill(s): technical (`.agents/skills/`) and/or workflow (`.atl/skill-registry.md`).
+- [ ] Read the relevant skill(s) from `.agents/skills/`.
 - [ ] If architecture-sensitive code changed, `.agents/skills/project-architecture/SKILL.md` was read and followed.
 - [ ] For new features, followed TDD: red test first, minimal implementation second, refactor last.
 - [ ] Tabs, double quotes, `kebab-case.<role>.ts` names.

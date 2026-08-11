@@ -63,7 +63,27 @@ pnpm run test:e2e
 pnpm run security:audit
 ```
 
-The security audit fails closed on malformed output and on every unapproved moderate-or-higher vulnerability. The only temporary exception is path-scoped and expiry-bound in `scripts/pnpm-audit-validator.mjs`.
+The security audit fails closed on malformed output and on every unapproved moderate-or-higher vulnerability. The only temporary exception is path-scoped and expiry-bound in `scripts/pnpm-audit-validator.ts`.
+
+## Development workflow
+
+Non-trivial work follows:
+
+```text
+DEFINE → PLAN → BUILD → VERIFY → REVIEW → SHIP
+```
+
+Use OpenSpec for change-specific requirements and decisions:
+
+```text
+openspec/changes/<change-name>/
+├── proposal.md
+├── design.md
+├── tasks.md
+└── verify-report.md
+```
+
+Read the complete process in [`docs/development-workflow.md`](docs/development-workflow.md). Start new changes from the templates in [`openspec/templates/`](openspec/templates/). The CI workflow also validates that application and infrastructure changes have an active OpenSpec proposal, design, and task list.
 
 ## Architecture
 
