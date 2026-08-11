@@ -77,7 +77,7 @@ describe("RefreshTokenUseCase", () => {
 		const userId = "11111111-1111-1111-1111-111111111111";
 		const email = "jane@example.com";
 		const rawToken = "old-refresh-token";
-		const expiresAt = new Date("2026-08-01T00:00:00.000Z");
+		const expiresAt = new Date(Date.now() + 60_000);
 		const existingToken = {
 			id: "aaaaaaaa-0000-0000-0000-000000000001",
 			userId,
@@ -142,7 +142,7 @@ describe("RefreshTokenUseCase", () => {
 			userId,
 			tokenHash: "different-hash",
 			tokenDigest: "some-digest",
-			expiresAt: new Date("2026-08-01T00:00:00.000Z"),
+			expiresAt: new Date(Date.now() + 60_000),
 			revokedAt: null,
 		};
 
