@@ -1,4 +1,4 @@
-# Design: <Change name>
+# Design: Change name
 
 ## Technical approach
 

@@ -1,4 +1,4 @@
-# Proposal: <Change name>
+# Proposal: Change name
 
 ## Objective
 

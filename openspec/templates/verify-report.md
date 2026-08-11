@@ -1,4 +1,4 @@
-# Verification Report: <Change name>
+# Verification Report: Change name
 
 **Verified at:** <ISO 8601 timestamp>
 **Mode:** Strict TDD / Regression-first / Configuration-only
@@ -39,6 +39,6 @@
 
 ## Verdict
 
-**PASS / PASS WITH WARNINGS / BLOCKED**
+Verdict: PASS / PASS WITH WARNINGS / BLOCKED
 
 <!-- Explain any skipped command or unresolved warning. -->

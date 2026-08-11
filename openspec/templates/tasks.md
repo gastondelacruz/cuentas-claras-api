@@ -1,4 +1,4 @@
-# Tasks: <Change name>
+# Tasks: Change name
 
 ## Review workload forecast
 
@@ -10,7 +10,7 @@
 
 ## Task list
 
-### Task 1: <Short imperative title>
+### Task 1: Short imperative title
 
 **Description:**
 

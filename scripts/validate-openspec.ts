@@ -75,11 +75,11 @@ function getActiveChanges(): string[] {
 function main(): void {
 	const errors = validateOpenSpecChange(getChangedFiles(), getActiveChanges());
 	if (errors.length > 0) {
-		for (const error of errors) console.error(error);
+		for (const error of errors) process.stderr.write(`${error}\n`);
 		process.exitCode = 1;
 		return;
 	}
-	console.log("OpenSpec workflow validation passed.");
+	process.stdout.write("OpenSpec workflow validation passed.\n");
 }
 
 if (process.argv[1]?.endsWith("/validate-openspec.ts")) main();
