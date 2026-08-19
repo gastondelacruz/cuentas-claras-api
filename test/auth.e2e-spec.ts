@@ -13,6 +13,7 @@ import { AppModule } from "../src/app.module";
 import {
 	MailDeliveryPort,
 	type GroupInvitationEmailInput,
+	type PasswordResetEmailInput,
 	type VerificationEmailInput,
 } from "../src/shared/mail/domain/ports/mail-delivery.port";
 import { HttpExceptionFilter } from "../src/shared/filters/http-exception.filter";
@@ -89,7 +90,11 @@ describe("Auth login endpoint (e2e)", () => {
 	it("POST /api/v1/auth/login returns 200 with tokens and user after registration", async () => {
 		await request(app.getHttpServer())
 			.post("/api/v1/auth/register")
-			.send({ email: "login@example.com", password: "SecureP4ss!", name: "Jane" })
+			.send({
+				email: "login@example.com",
+				password: "SecureP4ss!",
+				name: "Jane",
+			})
 			.expect(201);
 
 		const response = await request(app.getHttpServer())
@@ -127,7 +132,11 @@ describe("Auth login endpoint (e2e)", () => {
 	it("POST /api/v1/auth/login returns 401 INVALID_CREDENTIALS for wrong password", async () => {
 		await request(app.getHttpServer())
 			.post("/api/v1/auth/register")
-			.send({ email: "login@example.com", password: "SecureP4ss!", name: "Jane" })
+			.send({
+				email: "login@example.com",
+				password: "SecureP4ss!",
+				name: "Jane",
+			})
 			.expect(201);
 
 		const response = await request(app.getHttpServer())
@@ -186,7 +195,8 @@ describe("Auth refresh token endpoint (e2e)", () => {
 		process.env.DATABASE_URL = postgresContainer.getConnectionUri();
 		process.env.NODE_ENV = "test";
 		process.env.JWT_ACCESS_SECRET = "test-access-secret-with-at-least-32-chars";
-		process.env.JWT_REFRESH_SECRET = "test-refresh-secret-with-at-least-32-chars";
+		process.env.JWT_REFRESH_SECRET =
+			"test-refresh-secret-with-at-least-32-chars";
 		process.env.JWT_ACCESS_TTL = "15m";
 		process.env.JWT_REFRESH_TTL = "30d";
 
@@ -247,7 +257,11 @@ describe("Auth refresh token endpoint (e2e)", () => {
 
 		await request(app.getHttpServer())
 			.post("/api/v1/auth/register")
-			.send({ email: "refresh@example.com", password: "SecureP4ss!", name: "Refresh User" })
+			.send({
+				email: "refresh@example.com",
+				password: "SecureP4ss!",
+				name: "Refresh User",
+			})
 			.expect(201);
 
 		const loginRes = await request(app.getHttpServer())
@@ -378,7 +392,11 @@ describe("POST /api/v1/auth/logout (e2e)", () => {
 	it("returns 204 and revokes the refresh token (happy path)", async () => {
 		const registerRes = await request(app.getHttpServer())
 			.post("/api/v1/auth/register")
-			.send({ email: "logout@example.com", password: "SecureP4ss!", name: "Logout User" })
+			.send({
+				email: "logout@example.com",
+				password: "SecureP4ss!",
+				name: "Logout User",
+			})
 			.expect(201);
 
 		const { accessToken, refreshToken } = registerRes.body.data;
@@ -400,7 +418,11 @@ describe("POST /api/v1/auth/logout (e2e)", () => {
 	it("returns 400 when refreshToken field is missing", async () => {
 		const registerRes = await request(app.getHttpServer())
 			.post("/api/v1/auth/register")
-			.send({ email: "logout-missing@example.com", password: "SecureP4ss!", name: "Logout User" })
+			.send({
+				email: "logout-missing@example.com",
+				password: "SecureP4ss!",
+				name: "Logout User",
+			})
 			.expect(201);
 
 		await request(app.getHttpServer())
@@ -413,7 +435,11 @@ describe("POST /api/v1/auth/logout (e2e)", () => {
 	it("returns 204 for unknown refresh token (idempotent)", async () => {
 		const registerRes = await request(app.getHttpServer())
 			.post("/api/v1/auth/register")
-			.send({ email: "logout-unk@example.com", password: "SecureP4ss!", name: "Logout User" })
+			.send({
+				email: "logout-unk@example.com",
+				password: "SecureP4ss!",
+				name: "Logout User",
+			})
 			.expect(201);
 
 		await request(app.getHttpServer())
@@ -426,7 +452,11 @@ describe("POST /api/v1/auth/logout (e2e)", () => {
 	it("returns 204 a second time for the same revoked token (idempotent)", async () => {
 		const registerRes = await request(app.getHttpServer())
 			.post("/api/v1/auth/register")
-			.send({ email: "logout-idem@example.com", password: "SecureP4ss!", name: "Logout User" })
+			.send({
+				email: "logout-idem@example.com",
+				password: "SecureP4ss!",
+				name: "Logout User",
+			})
 			.expect(201);
 
 		const { accessToken, refreshToken } = registerRes.body.data;
@@ -447,7 +477,11 @@ describe("POST /api/v1/auth/logout (e2e)", () => {
 	it("POST /api/v1/auth/refresh returns 401 after the refresh token has been revoked via logout", async () => {
 		const registerRes = await request(app.getHttpServer())
 			.post("/api/v1/auth/register")
-			.send({ email: "logout-refresh@example.com", password: "SecureP4ss!", name: "Logout User" })
+			.send({
+				email: "logout-refresh@example.com",
+				password: "SecureP4ss!",
+				name: "Logout User",
+			})
 			.expect(201);
 
 		const { accessToken, refreshToken } = registerRes.body.data;
@@ -480,7 +514,8 @@ describe("Auth registration endpoint (e2e)", () => {
 		process.env.DATABASE_URL = postgresContainer.getConnectionUri();
 		process.env.NODE_ENV = "test";
 		process.env.JWT_ACCESS_SECRET = "test-access-secret-with-at-least-32-chars";
-		process.env.JWT_REFRESH_SECRET = "test-refresh-secret-with-at-least-32-chars";
+		process.env.JWT_REFRESH_SECRET =
+			"test-refresh-secret-with-at-least-32-chars";
 		process.env.JWT_ACCESS_TTL = "15m";
 		process.env.JWT_REFRESH_TTL = "30d";
 
@@ -561,9 +596,9 @@ describe("Auth registration endpoint (e2e)", () => {
 			},
 		});
 		expect(user.passwordHash).not.toBe("SecureP4ss!");
-		await expect(argon2.verify(user.passwordHash!, "SecureP4ss!")).resolves.toBe(
-			true,
-		);
+		await expect(
+			argon2.verify(user.passwordHash!, "SecureP4ss!"),
+		).resolves.toBe(true);
 
 		const persistedRefreshToken = await prisma.refreshToken.findFirstOrThrow({
 			where: {
@@ -579,7 +614,9 @@ describe("Auth registration endpoint (e2e)", () => {
 				response.body.data.refreshToken,
 			),
 		).resolves.toBe(true);
-		expect(persistedRefreshToken.expiresAt.getTime()).toBeGreaterThan(Date.now());
+		expect(persistedRefreshToken.expiresAt.getTime()).toBeGreaterThan(
+			Date.now(),
+		);
 
 		const accounts = await prisma.account.findMany({
 			where: {
@@ -657,7 +694,8 @@ describe("Email verification endpoints (e2e)", () => {
 		process.env.DATABASE_URL = postgresContainer.getConnectionUri();
 		process.env.NODE_ENV = "test";
 		process.env.JWT_ACCESS_SECRET = "test-access-secret-with-at-least-32-chars";
-		process.env.JWT_REFRESH_SECRET = "test-refresh-secret-with-at-least-32-chars";
+		process.env.JWT_REFRESH_SECRET =
+			"test-refresh-secret-with-at-least-32-chars";
 		process.env.JWT_ACCESS_TTL = "15m";
 		process.env.JWT_REFRESH_TTL = "30d";
 
@@ -719,7 +757,11 @@ describe("Email verification endpoints (e2e)", () => {
 	it("POST /api/v1/auth/email-verification/verify consumes a registration token and marks the user verified", async () => {
 		const registerResponse = await request(app.getHttpServer())
 			.post("/api/v1/auth/register")
-			.send({ email: "verify@example.com", password: "SecureP4ss!", name: "Verify User" })
+			.send({
+				email: "verify@example.com",
+				password: "SecureP4ss!",
+				name: "Verify User",
+			})
 			.expect(201);
 		const token = extractToken(mail.verificationEmails[0].verificationUrl);
 
@@ -741,7 +783,11 @@ describe("Email verification endpoints (e2e)", () => {
 	it("POST /api/v1/auth/email-verification/resend invalidates older active tokens and sends one replacement", async () => {
 		const registerResponse = await request(app.getHttpServer())
 			.post("/api/v1/auth/register")
-			.send({ email: "resend@example.com", password: "SecureP4ss!", name: "Resend User" })
+			.send({
+				email: "resend@example.com",
+				password: "SecureP4ss!",
+				name: "Resend User",
+			})
 			.expect(201);
 
 		await request(app.getHttpServer())
@@ -760,7 +806,11 @@ describe("Email verification endpoints (e2e)", () => {
 	it("GET /api/v1/auth/email-verification/status returns the current verification state", async () => {
 		const registerResponse = await request(app.getHttpServer())
 			.post("/api/v1/auth/register")
-			.send({ email: "status@example.com", password: "SecureP4ss!", name: "Status User" })
+			.send({
+				email: "status@example.com",
+				password: "SecureP4ss!",
+				name: "Status User",
+			})
 			.expect(201);
 
 		await request(app.getHttpServer())
@@ -777,10 +827,70 @@ describe("Email verification endpoints (e2e)", () => {
 			});
 	});
 
+	it("POST /api/v1/auth/password/forgot and reset update the password", async () => {
+		await request(app.getHttpServer())
+			.post("/api/v1/auth/register")
+			.send({
+				email: "reset@example.com",
+				password: "SecureP4ss!",
+				name: "Reset User",
+			})
+			.expect(201);
+		mail.clear();
+
+		await request(app.getHttpServer())
+			.post("/api/v1/auth/password/forgot")
+			.send({ email: "reset@example.com" })
+			.expect(204);
+
+		expect(mail.passwordResetEmails).toHaveLength(1);
+		const token = extractToken(mail.passwordResetEmails[0].resetUrl);
+		await request(app.getHttpServer())
+			.post("/api/v1/auth/password/reset")
+			.send({ token, password: "NewSecureP4ss!" })
+			.expect(204);
+
+		await request(app.getHttpServer())
+			.post("/api/v1/auth/password/reset")
+			.send({ token, password: "AnotherP4ss!" })
+			.expect(409);
+
+		await request(app.getHttpServer())
+			.post("/api/v1/auth/login")
+			.send({ email: "reset@example.com", password: "SecureP4ss!" })
+			.expect(401);
+		await request(app.getHttpServer())
+			.post("/api/v1/auth/login")
+			.send({ email: "reset@example.com", password: "NewSecureP4ss!" })
+			.expect(200);
+
+		const user = await prisma.user.findUniqueOrThrow({
+			where: { email: "reset@example.com" },
+		});
+		expect(
+			await prisma.refreshToken.count({
+				where: { userId: user.id, revokedAt: { not: null } },
+			}),
+		).toBe(1);
+	});
+
+	it("POST /api/v1/auth/password/forgot does not reveal unknown emails", async () => {
+		await request(app.getHttpServer())
+			.post("/api/v1/auth/password/forgot")
+			.send({ email: "unknown-reset@example.com" })
+			.expect(204);
+
+		expect(mail.passwordResetEmails).toHaveLength(0);
+	});
+
 	it("POST /api/v1/auth/email-verification/resend keeps durable state when mail delivery fails", async () => {
 		const registerResponse = await request(app.getHttpServer())
 			.post("/api/v1/auth/register")
-			.send({ email: "mail-fail@example.com", password: "SecureP4ss!", name: "Mail Fail" })
+			.send({
+				email: "mail-fail@example.com",
+				password: "SecureP4ss!",
+				name: "Mail Fail",
+			})
 			.expect(201);
 		mail.failVerification = true;
 
@@ -801,6 +911,7 @@ describe("Email verification endpoints (e2e)", () => {
 
 class CapturingMailDelivery extends MailDeliveryPort {
 	verificationEmails: VerificationEmailInput[] = [];
+	passwordResetEmails: PasswordResetEmailInput[] = [];
 	groupInvitationEmails: GroupInvitationEmailInput[] = [];
 	failVerification = false;
 	failInvitation = false;
@@ -813,7 +924,13 @@ class CapturingMailDelivery extends MailDeliveryPort {
 		}
 	}
 
-	async sendGroupInvitationEmail(input: GroupInvitationEmailInput): Promise<void> {
+	async sendPasswordResetEmail(input: PasswordResetEmailInput): Promise<void> {
+		this.passwordResetEmails.push(input);
+	}
+
+	async sendGroupInvitationEmail(
+		input: GroupInvitationEmailInput,
+	): Promise<void> {
 		this.groupInvitationEmails.push(input);
 
 		if (this.failInvitation) {
@@ -823,6 +940,7 @@ class CapturingMailDelivery extends MailDeliveryPort {
 
 	clear(): void {
 		this.verificationEmails = [];
+		this.passwordResetEmails = [];
 		this.groupInvitationEmails = [];
 		this.failVerification = false;
 		this.failInvitation = false;

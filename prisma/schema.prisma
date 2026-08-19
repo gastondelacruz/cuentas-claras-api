@@ -53,6 +53,7 @@ model User {
   groupMembers         GroupMember[]
   refreshTokens        RefreshToken[]
   emailVerificationTokens EmailVerificationToken[]
+  passwordResetTokens  PasswordResetToken[]
   accounts             Account[]
   personalTransactions PersonalTransaction[]
   personalCategories   PersonalCategory[]
@@ -73,6 +74,21 @@ model EmailVerificationToken {
   @@index([userId])
   @@index([expiresAt])
   @@map("email_verification_tokens")
+}
+
+model PasswordResetToken {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  tokenDigest String    @unique @map("token_digest")
+  expiresAt   DateTime  @map("expires_at")
+  consumedAt  DateTime? @map("consumed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
 }
 
 model RefreshToken {

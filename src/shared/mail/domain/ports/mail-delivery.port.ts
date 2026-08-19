@@ -4,6 +4,12 @@ export type VerificationEmailInput = {
 	verificationUrl: string;
 };
 
+export type PasswordResetEmailInput = {
+	to: string;
+	name: string;
+	resetUrl: string;
+};
+
 export type GroupInvitationEmailInput = {
 	to: string;
 	inviteeName: string;
@@ -13,5 +19,10 @@ export type GroupInvitationEmailInput = {
 
 export abstract class MailDeliveryPort {
 	abstract sendVerificationEmail(input: VerificationEmailInput): Promise<void>;
-	abstract sendGroupInvitationEmail(input: GroupInvitationEmailInput): Promise<void>;
+	async sendPasswordResetEmail(_input: PasswordResetEmailInput): Promise<void> {
+		return undefined;
+	}
+	abstract sendGroupInvitationEmail(
+		input: GroupInvitationEmailInput,
+	): Promise<void>;
 }

@@ -4,6 +4,7 @@ import mailConfig from "../../../config/mail.config";
 import {
 	MailDeliveryPort,
 	type GroupInvitationEmailInput,
+	type PasswordResetEmailInput,
 	type VerificationEmailInput,
 } from "../domain/ports/mail-delivery.port";
 
@@ -27,6 +28,20 @@ export class ResendMailDeliveryAdapter extends MailDeliveryPort {
 					"Confirma tu correo electrónico para comenzar a disfrutar todas las funcionalidades de Cuentas Claras.",
 				ctaLabel: "Verificar correo",
 				ctaUrl: input.verificationUrl,
+			}),
+		});
+	}
+
+	async sendPasswordResetEmail(input: PasswordResetEmailInput): Promise<void> {
+		await this.sendEmail({
+			to: input.to,
+			subject: "Recupera tu password de Cuentas Claras",
+			html: buildEmailLayout({
+				greeting: `Hola ${escapeHtml(input.name)},`,
+				title: "Recupera tu password",
+				content: "Recibimos una solicitud para actualizar la password de tu cuenta.",
+				ctaLabel: "Actualizar password",
+				ctaUrl: input.resetUrl,
 			}),
 		});
 	}
