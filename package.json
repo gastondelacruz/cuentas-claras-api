@@ -23,7 +23,8 @@
       "minimatch@5.1.9>brace-expansion": "5.0.9",
       "minimatch@10.2.5>brace-expansion": "5.0.9",
       "brace-expansion": "5.0.9",
-      "js-yaml": "5.2.3"
+      "js-yaml": "5.2.3",
+      "@prisma/config>deepmerge-ts": "8.0.1"
     }
   },
   "scripts": {

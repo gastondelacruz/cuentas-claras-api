@@ -7,6 +7,8 @@ import mailConfig from "../config/mail.config";
 import { MailModule } from "../shared/mail/mail.module";
 import { GetEmailVerificationStatusUseCase } from "./application/use-cases/get-email-verification-status.use-case";
 import { LoginUseCase } from "./application/use-cases/login.use-case";
+import { RequestPasswordResetUseCase } from "./application/use-cases/request-password-reset.use-case";
+import { ResetPasswordUseCase } from "./application/use-cases/reset-password.use-case";
 import { LogoutUseCase } from "./application/use-cases/logout.use-case";
 import { RefreshTokenUseCase } from "./application/use-cases/refresh.use-case";
 import { RegisterUseCase } from "./application/use-cases/register.use-case";
@@ -15,12 +17,14 @@ import { VerifyEmailUseCase } from "./application/use-cases/verify-email.use-cas
 import { AuthUserRepository } from "./domain/ports/auth-user.repository";
 import { EmailVerificationTokenRepository } from "./domain/ports/email-verification-token.repository";
 import { PasswordHasher } from "./domain/ports/password-hasher";
+import { PasswordResetRepository } from "./domain/ports/password-reset.repository";
 import { RefreshTokenRepository } from "./domain/ports/refresh-token.repository";
 import { TokenDigestService } from "./domain/ports/token-digest.service";
 import { TokenService } from "./domain/ports/token.service";
 import { AuthController } from "./infrastructure/http/auth.controller";
 import { PrismaAuthUserRepository } from "./infrastructure/persistence/prisma-auth-user.repository";
 import { PrismaEmailVerificationTokenRepository } from "./infrastructure/persistence/prisma-email-verification-token.repository";
+import { PrismaPasswordResetRepository } from "./infrastructure/persistence/prisma-password-reset.repository";
 import { PrismaRefreshTokenRepository } from "./infrastructure/persistence/prisma-refresh-token.repository";
 import { Argon2PasswordHasher } from "./infrastructure/security/argon2-password-hasher";
 import { HmacTokenDigestService } from "./infrastructure/security/hmac-token-digest.service";
@@ -39,6 +43,8 @@ import { JwtTokenService } from "./infrastructure/security/jwt-token.service";
 	providers: [
 		RegisterUseCase,
 		LoginUseCase,
+		RequestPasswordResetUseCase,
+		ResetPasswordUseCase,
 		RefreshTokenUseCase,
 		LogoutUseCase,
 		VerifyEmailUseCase,
@@ -50,6 +56,7 @@ import { JwtTokenService } from "./infrastructure/security/jwt-token.service";
 		HmacTokenDigestService,
 		PrismaAuthUserRepository,
 		PrismaRefreshTokenRepository,
+		PrismaPasswordResetRepository,
 		PrismaEmailVerificationTokenRepository,
 		{
 			provide: PasswordHasher,
@@ -72,10 +79,20 @@ import { JwtTokenService } from "./infrastructure/security/jwt-token.service";
 			useExisting: PrismaRefreshTokenRepository,
 		},
 		{
+			provide: PasswordResetRepository,
+			useExisting: PrismaPasswordResetRepository,
+		},
+		{
 			provide: EmailVerificationTokenRepository,
 			useExisting: PrismaEmailVerificationTokenRepository,
 		},
 	],
-	exports: [PassportModule, JwtModule, JwtStrategy, AuthUserRepository, TokenDigestService],
+	exports: [
+		PassportModule,
+		JwtModule,
+		JwtStrategy,
+		AuthUserRepository,
+		TokenDigestService,
+	],
 })
 export class AuthModule {}

@@ -1,11 +1,13 @@
 import { Injectable } from "@nestjs/common";
-import {
-	MailDeliveryPort,
-} from "../domain/ports/mail-delivery.port";
+import { MailDeliveryPort } from "../domain/ports/mail-delivery.port";
 
 @Injectable()
 export class NoopMailDeliveryAdapter extends MailDeliveryPort {
 	async sendVerificationEmail(): Promise<void> {
+		return undefined;
+	}
+
+	async sendPasswordResetEmail(): Promise<void> {
 		return undefined;
 	}
 

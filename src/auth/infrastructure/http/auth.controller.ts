@@ -12,6 +12,8 @@ import {
 import { LogoutUseCase } from "../../application/use-cases/logout.use-case";
 import { GetEmailVerificationStatusUseCase } from "../../application/use-cases/get-email-verification-status.use-case";
 import { LoginUseCase } from "../../application/use-cases/login.use-case";
+import { RequestPasswordResetUseCase } from "../../application/use-cases/request-password-reset.use-case";
+import { ResetPasswordUseCase } from "../../application/use-cases/reset-password.use-case";
 import { RefreshTokenUseCase } from "../../application/use-cases/refresh.use-case";
 import { RegisterUseCase } from "../../application/use-cases/register.use-case";
 import { ResendEmailVerificationUseCase } from "../../application/use-cases/resend-email-verification.use-case";
@@ -23,6 +25,8 @@ import { RefreshRequestDto } from "./dto/refresh-request.dto";
 import { RefreshResponseDto } from "./dto/refresh-response.dto";
 import { RegisterRequestDto } from "./dto/register-request.dto";
 import { RegisterResponseDto } from "./dto/register-response.dto";
+import { RequestPasswordResetDto } from "./dto/request-password-reset.dto";
+import { ResetPasswordDto } from "./dto/reset-password.dto";
 import { VerifyEmailRequestDto } from "./dto/verify-email-request.dto";
 import { AuthMapper } from "./mappers/auth.mapper";
 import type { JwtRequestUser } from "../security/jwt.strategy";
@@ -35,6 +39,10 @@ export class AuthController {
 		private readonly registerUseCase: RegisterUseCase,
 		@Inject(LoginUseCase)
 		private readonly loginUseCase: LoginUseCase,
+		@Inject(RequestPasswordResetUseCase)
+		private readonly requestPasswordResetUseCase: RequestPasswordResetUseCase,
+		@Inject(ResetPasswordUseCase)
+		private readonly resetPasswordUseCase: ResetPasswordUseCase,
 		@Inject(RefreshTokenUseCase)
 		private readonly refreshTokenUseCase: RefreshTokenUseCase,
 		@Inject(LogoutUseCase)
@@ -74,6 +82,28 @@ export class AuthController {
 		);
 
 		return AuthMapper.toLoginResponseDto(result);
+	}
+
+	@Post("password/forgot")
+	@Public()
+	@Throttle({ default: getAuthRateLimit() })
+	@HttpCode(HttpStatus.NO_CONTENT)
+	@ApiBody({ type: RequestPasswordResetDto })
+	@ApiNoContentResponse({ description: "Password reset request accepted." })
+	async requestPasswordReset(@Body() body: RequestPasswordResetDto): Promise<void> {
+		await this.requestPasswordResetUseCase.execute(
+			AuthMapper.toRequestPasswordResetInput(body),
+		);
+	}
+
+	@Post("password/reset")
+	@Public()
+	@Throttle({ default: getAuthRateLimit() })
+	@HttpCode(HttpStatus.NO_CONTENT)
+	@ApiBody({ type: ResetPasswordDto })
+	@ApiNoContentResponse({ description: "Password reset successfully." })
+	async resetPassword(@Body() body: ResetPasswordDto): Promise<void> {
+		await this.resetPasswordUseCase.execute(AuthMapper.toResetPasswordInput(body));
 	}
 
 	@Post("refresh")

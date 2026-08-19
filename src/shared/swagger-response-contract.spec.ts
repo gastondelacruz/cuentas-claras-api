@@ -5,6 +5,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { LogoutUseCase } from "../auth/application/use-cases/logout.use-case";
 import { GetEmailVerificationStatusUseCase } from "../auth/application/use-cases/get-email-verification-status.use-case";
 import { LoginUseCase } from "../auth/application/use-cases/login.use-case";
+import { RequestPasswordResetUseCase } from "../auth/application/use-cases/request-password-reset.use-case";
+import { ResetPasswordUseCase } from "../auth/application/use-cases/reset-password.use-case";
 import { RefreshTokenUseCase } from "../auth/application/use-cases/refresh.use-case";
 import { RegisterUseCase } from "../auth/application/use-cases/register.use-case";
 import { ResendEmailVerificationUseCase } from "../auth/application/use-cases/resend-email-verification.use-case";
@@ -83,6 +85,8 @@ describe("global Swagger response contract", () => {
 			providers: [
 				{ provide: RegisterUseCase, useValue: executeMock },
 				{ provide: LoginUseCase, useValue: executeMock },
+				{ provide: RequestPasswordResetUseCase, useValue: executeMock },
+				{ provide: ResetPasswordUseCase, useValue: executeMock },
 				{ provide: RefreshTokenUseCase, useValue: executeMock },
 				{ provide: LogoutUseCase, useValue: executeMock },
 				{ provide: VerifyEmailUseCase, useValue: executeMock },
