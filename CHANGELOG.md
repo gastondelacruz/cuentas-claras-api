@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.6.0](https://github.com/gastondelacruz/cuentas-claras-api/compare/v1.5.1...v1.6.0) (2026-08-19)
+
+
+### Features
+
+* add password reset flow ([c7f686e](https://github.com/gastondelacruz/cuentas-claras-api/commit/c7f686e52bdfd7ddd979fd2ff538f3285c99fccc))
+* add password reset flow ([b718d50](https://github.com/gastondelacruz/cuentas-claras-api/commit/b718d50228646597ed3e165a7fbe461eef74e439))
+
+
+### Bug Fixes
+
+* override vulnerable prisma merge dependency ([3a896d3](https://github.com/gastondelacruz/cuentas-claras-api/commit/3a896d35351e8ec77f51721681f629f35c54c9c3))
+
 ## [1.5.1](https://github.com/gastondelacruz/cuentas-claras-api/compare/v1.5.0...v1.5.1) (2026-07-25)
 
 
